@@ -48,58 +48,82 @@ namespace Laboratorio.Api.Controllers
 
         // POST: api/ordenes
         [HttpPost]
-        public async Task<ActionResult<OrdenLaboratorio>> PostOrden(OrdenLaboratorio orden)
+        public async Task<IActionResult> CrearOrden([FromBody] CrearOrdenDto dto)
         {
-            // Validar que el Tenant exista
-            var tenantExists = await _context.Tenants.AnyAsync(t => t.TenantId == orden.TenantId);
-            if (!tenantExists)
-            {
-                return BadRequest(new { message = "El Tenant especificado no existe." });
-            }
+            if (!ModelState.IsValid)
+                return BadRequest(ModelState);
 
-            // Validar que el Paciente exista
-            var pacienteExists = await _context.Pacientes.AnyAsync(p => p.PacienteId == orden.PacienteId);
-            if (!pacienteExists)
-            {
-                return BadRequest(new { message = "El Paciente especificado no existe." });
-            }
-
-            // --- INICIO DE LA SOLUCIÓN DEL CORRELATIVO ---
-            // 1. Definimos el rango del día actual (00:00 a 23:59)
-            var inicioDia = DateTime.UtcNow.Date;
-            var finDia = inicioDia.AddDays(1);
-
-            // 2. Buscamos el número más alto de hoy para esta clínica específica
-            var ultimoCorrelativo = await _context.OrdenesLaboratorio
-                .Where(o => o.TenantId == orden.TenantId && o.FechaOrden >= inicioDia && o.FechaOrden < finDia)
-                .MaxAsync(o => (int?)o.CorrelativoDiario) ?? 0;
-
-            // 3. Asignamos el siguiente número (ignorando lo que venga del JSON)
-            orden.CorrelativoDiario = ultimoCorrelativo + 1;
-            // --- FIN DE LA SOLUCIÓN ---
-
-            orden.OrdenId = Guid.NewGuid();
-            orden.FechaOrden = DateTime.UtcNow;
+            // Validamos que el paciente exista en esa clínica
+            var pacienteExiste = await _context.Pacientes
+                .AnyAsync(p => p.PacienteId == dto.PacienteId && p.TenantId == dto.TenantId);
             
-            // Asegurar que la ruta no sea nula para cumplir con la restricción de base de datos
-            orden.RutaArchivoExterno ??= string.Empty;
+            if (!pacienteExiste)
+                return NotFound("El paciente no existe o no pertenece a esta clínica.");
 
-            // Asegurar IDs en los detalles si vienen vacíos
-            if (orden.Resultados != null)
+            // Iniciamos la Transacción Segura
+            using var transaction = await _context.Database.BeginTransactionAsync();
+
+            try
             {
-                foreach (var resultado in orden.Resultados)
+                // 1. Calcular el Correlativo Diario (el número de tubo del día)
+                // Obtenemos la fecha de hoy. EF Core traducirá esto a la BD.
+                var hoy = DateTime.UtcNow.Date;
+                
+                var ultimoCorrelativo = await _context.OrdenesLaboratorio
+                    .Where(o => o.TenantId == dto.TenantId && o.FechaOrden.Date == hoy)
+                    .MaxAsync(o => (int?)o.CorrelativoDiario) ?? 0;
+
+                var nuevoCorrelativo = ultimoCorrelativo + 1;
+
+                // 2. Crear la Orden (Cabecera)
+                var nuevaOrden = new OrdenLaboratorio
                 {
-                    resultado.ResultadoId = Guid.NewGuid();
-                    resultado.OrdenId = orden.OrdenId;
-                    resultado.TenantId = orden.TenantId;
-                    resultado.FechaCarga = DateTime.UtcNow;
+                    TenantId = dto.TenantId,
+                    PacienteId = dto.PacienteId,
+                    MotivoExamen = dto.MotivoExamen,
+                    CorrelativoDiario = nuevoCorrelativo,
+                    Estado = "Registrada",
+                    FechaOrden = DateTime.UtcNow
+                };
+
+                _context.OrdenesLaboratorio.Add(nuevaOrden);
+                await _context.SaveChangesAsync(); // Guardamos para que se genere el OrdenId
+
+                // 3. Crear los Resultados (Detalles de los exámenes seleccionados)
+                var detalles = new List<ResultadoDetalle>();
+                foreach (var examenId in dto.ExamenesIds)
+                {
+                    detalles.Add(new ResultadoDetalle
+                    {
+                        TenantId = dto.TenantId,
+                        OrdenId = nuevaOrden.OrdenId,
+                        ExamenId = examenId,
+                        EstadoTercerizado = "Interno",
+                        FechaCarga = DateTime.UtcNow
+                    });
                 }
+
+                _context.ResultadosDetalle.AddRange(detalles);
+                await _context.SaveChangesAsync(); // Guardamos los hijos
+
+                // 4. Confirmamos la transacción (¡Todo salió perfecto!)
+                await transaction.CommitAsync();
+
+                return Ok(new 
+                { 
+                    message = "Orden creada exitosamente", 
+                    ordenId = nuevaOrden.OrdenId, 
+                    correlativo = nuevaOrden.CorrelativoDiario 
+                });
             }
-
-            _context.OrdenesLaboratorio.Add(orden);
-            await _context.SaveChangesAsync();
-
-            return CreatedAtAction(nameof(GetOrden), new { id = orden.OrdenId }, orden);
+            catch (Exception ex)
+            {
+                // Si algo explota (falla de BD, llave foránea mala, etc.), deshacemos todo
+                await transaction.RollbackAsync();
+                
+                // Nota: En producción podríamos usar un ILogger aquí
+                return StatusCode(500, $"Error interno al crear la orden: {ex.Message}");
+            }
         }
 
         // PATCH: api/ordenes/{id}/validar
