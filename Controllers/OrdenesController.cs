@@ -53,20 +53,16 @@ namespace Laboratorio.Api.Controllers
             if (!ModelState.IsValid)
                 return BadRequest(ModelState);
 
-            // Validamos que el paciente exista en esa clínica
             var pacienteExiste = await _context.Pacientes
                 .AnyAsync(p => p.PacienteId == dto.PacienteId && p.TenantId == dto.TenantId);
             
             if (!pacienteExiste)
                 return NotFound("El paciente no existe o no pertenece a esta clínica.");
 
-            // Iniciamos la Transacción Segura
             using var transaction = await _context.Database.BeginTransactionAsync();
 
             try
             {
-                // 1. Calcular el Correlativo Diario (el número de tubo del día)
-                // Obtenemos la fecha de hoy. EF Core traducirá esto a la BD.
                 var hoy = DateTime.UtcNow.Date;
                 
                 var ultimoCorrelativo = await _context.OrdenesLaboratorio
@@ -75,7 +71,6 @@ namespace Laboratorio.Api.Controllers
 
                 var nuevoCorrelativo = ultimoCorrelativo + 1;
 
-                // 2. Crear la Orden (Cabecera)
                 var nuevaOrden = new OrdenLaboratorio
                 {
                     TenantId = dto.TenantId,
@@ -87,9 +82,8 @@ namespace Laboratorio.Api.Controllers
                 };
 
                 _context.OrdenesLaboratorio.Add(nuevaOrden);
-                await _context.SaveChangesAsync(); // Guardamos para que se genere el OrdenId
+                await _context.SaveChangesAsync();
 
-                // 3. Crear los Resultados (Detalles de los exámenes seleccionados)
                 var detalles = new List<ResultadoDetalle>();
                 foreach (var examenId in dto.ExamenesIds)
                 {
@@ -104,9 +98,8 @@ namespace Laboratorio.Api.Controllers
                 }
 
                 _context.ResultadosDetalle.AddRange(detalles);
-                await _context.SaveChangesAsync(); // Guardamos los hijos
+                await _context.SaveChangesAsync();
 
-                // 4. Confirmamos la transacción (¡Todo salió perfecto!)
                 await transaction.CommitAsync();
 
                 return Ok(new 
@@ -118,10 +111,7 @@ namespace Laboratorio.Api.Controllers
             }
             catch (Exception ex)
             {
-                // Si algo explota (falla de BD, llave foránea mala, etc.), deshacemos todo
                 await transaction.RollbackAsync();
-                
-                // Nota: En producción podríamos usar un ILogger aquí
                 return StatusCode(500, $"Error interno al crear la orden: {ex.Message}");
             }
         }
@@ -135,33 +125,57 @@ namespace Laboratorio.Api.Controllers
                 .FirstOrDefaultAsync(o => o.OrdenId == id);
 
             if (orden == null)
-            {
-                return NotFound(new { message = "La orden de laboratorio especificada no existe." });
-            }
+                return NotFound(new { message = "La orden no existe." });
 
-            orden.Estado = "Validada";
-            orden.ObservacionBioanalista = dto.ObservacionBioanalista;
-            orden.FechaValidacionFinal = DateTime.UtcNow;
+            if (orden.Estado == "Validada")
+                return BadRequest(new { message = "Esta orden ya se encuentra validada y bloqueada." });
 
-            if (dto.Resultados != null)
+            if (orden.Estado != "Procesada")
+                return BadRequest(new { message = "La orden debe estar 'Procesada' para poder validarse." });
+
+            using var transaction = await _context.Database.BeginTransactionAsync();
+
+            try
             {
-                foreach (var resDto in dto.Resultados)
+                if (!string.IsNullOrEmpty(dto.ObservacionBioanalista))
                 {
-                    var resultadoExistente = orden.Resultados?.FirstOrDefault(r => r.ResultadoId == resDto.ResultadoId);
-                    if (resultadoExistente != null)
+                    orden.ObservacionBioanalista = dto.ObservacionBioanalista;
+                }
+
+                if (dto.Resultados != null && orden.Resultados != null)
+                {
+                    foreach (var itemValidado in dto.Resultados)
                     {
-                        resultadoExistente.ValorResultado = resDto.ValorResultado;
-                        resultadoExistente.RangoReferenciaAplicado = resDto.RangoReferenciaAplicado;
-                        resultadoExistente.TecnicaAplicada = resDto.TecnicaAplicada;
-                        resultadoExistente.FueraDeRango = resDto.FueraDeRango;
-                        resultadoExistente.UuidBioanalista = dto.UuidBioanalista;
+                        var resultadoBd = orden.Resultados.FirstOrDefault(r => r.ResultadoId == itemValidado.ResultadoId);
+                        
+                        if (resultadoBd != null)
+                        {
+                            resultadoBd.ValorResultado = itemValidado.ValorResultado;
+                            resultadoBd.RangoReferenciaAplicado = itemValidado.RangoReferenciaAplicado;
+                            resultadoBd.TecnicaAplicada = itemValidado.TecnicaAplicada;
+                            resultadoBd.FueraDeRango = itemValidado.FueraDeRango;
+                            resultadoBd.UuidBioanalista = dto.UuidBioanalista;
+                        }
                     }
                 }
+
+                orden.Estado = "Validada";
+                orden.FechaValidacionFinal = DateTime.UtcNow;
+
+                await _context.SaveChangesAsync();
+                await transaction.CommitAsync();
+
+                return Ok(new 
+                { 
+                    message = "Orden validada exitosamente. Lista para el reporte final.", 
+                    ordenId = orden.OrdenId 
+                });
             }
-
-            await _context.SaveChangesAsync();
-
-            return Ok(new { message = "Orden validada exitosamente por el bioanalista.", ordenId = orden.OrdenId, estado = orden.Estado });
+            catch (Exception ex)
+            {
+                await transaction.RollbackAsync();
+                return StatusCode(500, $"Error interno al validar: {ex.Message}");
+            }
         }
 
         // GET: api/ordenes/{id}/reporte
@@ -179,7 +193,6 @@ namespace Laboratorio.Api.Controllers
                 return NotFound(new { message = "La orden de laboratorio especificada no existe." });
             }
 
-            // Mapeamos las entidades a nuestro DTO de reporte
             var reporte = new ReporteOrdenDto
             {
                 OrdenId = orden.OrdenId,
@@ -191,21 +204,77 @@ namespace Laboratorio.Api.Controllers
                 
                 PacienteNombre = orden.Paciente?.NombreCompleto ?? "Desconocido",
                 PacienteCedula = orden.Paciente?.Cedula ?? "N/A",
-                PacienteSexo = orden.Paciente?.Sexo ?? "N/A",
-
-                Resultados = orden.Resultados?.Select(r => new ResultadoReporteDto
-                {
-                    Categoria = r.Examen?.Categoria ?? "Sin Categoría",
-                    ExamenNombre = r.Examen?.NombreParametro ?? "Desconocido",
-                    Valor = r.ValorResultado ?? string.Empty,
-                    Unidades = r.Examen?.Unidades ?? string.Empty,
-                    RangoReferencia = r.RangoReferenciaAplicado ?? r.Examen?.RangoReferenciaDefecto ?? string.Empty,
-                    Tecnica = r.TecnicaAplicada ?? r.Examen?.TecnicaDefecto ?? string.Empty,
-                    FueraDeRango = r.FueraDeRango
-                }).ToList() ?? new List<ResultadoReporteDto>()
+                PacienteSexo = orden.Paciente?.Sexo ?? "N/A"
             };
 
+            if (orden.Resultados != null && orden.Resultados.Any())
+            {
+                reporte.Categorias = orden.Resultados
+                    .Where(r => r.Examen != null)
+                    .GroupBy(r => r.Examen!.Categoria ?? "Sin Categoría")
+                    .Select(grupo => new CategoriaReporteDto
+                    {
+                        Categoria = grupo.Key,
+                        Resultados = grupo.Select(r => new ResultadoReporteDto
+                        {
+                            ExamenNombre = r.Examen!.NombreParametro ?? "Desconocido",
+                            Valor = r.ValorResultado ?? string.Empty,
+                            Unidades = r.Examen!.Unidades ?? string.Empty,
+                            RangoReferencia = r.RangoReferenciaAplicado ?? r.Examen!.RangoReferenciaDefecto ?? string.Empty,
+                            Tecnica = r.TecnicaAplicada ?? r.Examen!.TecnicaDefecto ?? string.Empty,
+                            FueraDeRango = r.FueraDeRango
+                        }).ToList()
+                    }).ToList();
+            }
+
             return Ok(reporte);
+        }
+
+        // PUT: api/ordenes/{id}/resultados
+        [HttpPut("{id}/resultados")]
+        public async Task<IActionResult> IngresarResultados(Guid id, [FromBody] IngresarResultadosDto dto)
+        {
+            var orden = await _context.OrdenesLaboratorio
+                .Include(o => o.Resultados)
+                .FirstOrDefaultAsync(o => o.OrdenId == id);
+
+            if (orden == null)
+                return NotFound(new { message = "La orden no existe." });
+
+            if (orden.Estado == "Validada")
+                return BadRequest(new { message = "Esta orden ya fue validada y no se puede modificar." });
+
+            using var transaction = await _context.Database.BeginTransactionAsync();
+
+            try
+            {
+                orden.ObservacionBioanalista = dto.ObservacionBioanalista;
+                orden.Estado = "Procesada";
+
+                foreach (var item in dto.Resultados)
+                {
+                    var resultadoBd = orden.Resultados?.FirstOrDefault(r => r.ResultadoId == item.ResultadoId);
+                    if (resultadoBd != null)
+                    {
+                        resultadoBd.ValorResultado = item.ValorResultado;
+                        
+                        if (!string.IsNullOrEmpty(item.ValorResultado))
+                        {
+                            resultadoBd.FechaCarga = DateTime.UtcNow;
+                        }
+                    }
+                }
+
+                await _context.SaveChangesAsync();
+                await transaction.CommitAsync();
+
+                return Ok(new { message = "Resultados guardados exitosamente", ordenId = orden.OrdenId });
+            }
+            catch (Exception ex)
+            {
+                await transaction.RollbackAsync();
+                return StatusCode(500, $"Error al guardar los resultados: {ex.Message}");
+            }
         }
     }
 }
