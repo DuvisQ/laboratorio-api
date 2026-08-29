@@ -42,6 +42,37 @@ namespace Laboratorio.Api.Controllers
             return paciente;
         }
 
+        // GET: api/Pacientes/buscar
+        [HttpGet("buscar")]
+        public async Task<IActionResult> BuscarPacientes([FromQuery] Guid tenantId, [FromQuery] string termino)
+        {
+            if (tenantId == Guid.Empty)
+                return BadRequest("El TenantId es obligatorio.");
+
+            if (string.IsNullOrWhiteSpace(termino))
+                return BadRequest("Debe ingresar un término (cédula, nombre o apellido) para buscar.");
+
+            // 1. Limpiamos el término de búsqueda de entrada (le quitamos espacios, puntos y guiones)
+            var busqueda = termino.Trim().ToLower();
+            var busquedaLimpia = busqueda.Replace(".", "").Replace("-", "").Replace(" ", "");
+
+            var query = _context.Pacientes.Where(p => p.TenantId == tenantId).AsQueryable();
+
+            // 2. Comparamos limpiando también la cédula de la base de datos "al vuelo"
+            // PostgreSQL traducirá estos Replace a funciones SQL nativas súper rápidas
+            var pacientes = await query
+                .Where(p => p.Cedula.ToLower().Replace(".", "").Replace("-", "").Replace(" ", "").Contains(busquedaLimpia) 
+                         || p.NombreCompleto.ToLower().Contains(busqueda))
+                .OrderBy(p => p.NombreCompleto)
+                .Take(20)
+                .ToListAsync();
+
+            if (!pacientes.Any())
+                return NotFound(new { message = "No se encontraron pacientes que coincidan con la búsqueda." });
+
+            return Ok(pacientes);
+        }
+
         // POST: api/pacientes
         [HttpPost]
         public async Task<ActionResult<Paciente>> PostPaciente(Paciente paciente)

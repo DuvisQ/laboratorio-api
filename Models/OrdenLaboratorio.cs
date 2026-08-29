@@ -27,10 +27,10 @@ namespace Laboratorio.Api.Models
         public string Estado { get; set; } = "Registrada"; 
 
         [MaxLength(255)]
-        public string MotivoExamen { get; set; } 
+        public string? MotivoExamen { get; set; } 
         
         [MaxLength(255)]
-        public string ObservacionBioanalista { get; set; }
+        public string? ObservacionBioanalista { get; set; }
 
         public bool PermitirEnvioParcial { get; set; } = false;
         
