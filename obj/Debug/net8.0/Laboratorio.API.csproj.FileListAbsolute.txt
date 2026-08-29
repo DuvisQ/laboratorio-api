@@ -108,3 +108,4 @@
 /home/duvis/Proyectos/BitCore/backend/Laboratorio.Api/obj/Debug/net8.0/Laboratorio.API.pdb
 /home/duvis/Proyectos/BitCore/backend/Laboratorio.Api/obj/Debug/net8.0/Laboratorio.API.genruntimeconfig.cache
 /home/duvis/Proyectos/BitCore/backend/Laboratorio.Api/obj/Debug/net8.0/ref/Laboratorio.API.dll
+/home/duvis/Proyectos/BitCore/backend/Laboratorio.Api/obj/Debug/net8.0/Laboratorio.API.sourcelink.json
