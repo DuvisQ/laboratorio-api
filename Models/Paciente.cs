@@ -16,25 +16,27 @@ namespace Laboratorio.Api.Models
         public Tenant? Tenant { get; set; }
 
         [Required, MaxLength(20)]
-        public string Cedula { get; set; } 
+        public string Cedula { get; set; } = string.Empty;
+
+        public string? NumeroHistoria { get; set; }
 
         [Required, MaxLength(150)]
-        public string NombreCompleto { get; set; }
+        public string NombreCompleto { get; set; } = string.Empty;
 
         [Required, MaxLength(1)]
-        public string Sexo { get; set; }
+        public string Sexo { get; set; } = string.Empty;
 
         [Column(TypeName = "date")]
         public DateTime FechaNacimiento { get; set; }
 
         [Required, MaxLength(20)]
-        public string TelefonoPrincipal { get; set; }
+        public string TelefonoPrincipal { get; set; } = string.Empty;
         
         [MaxLength(20)]
-        public string TelefonoRepresentante { get; set; }
+        public string TelefonoRepresentante { get; set; } = string.Empty;
         
         [MaxLength(255)]
-        public string Direccion { get; set; }
+        public string Direccion { get; set; } = string.Empty;
         
         [MaxLength(50)]
         public string? NumeroHistoriaFisica { get; set; }

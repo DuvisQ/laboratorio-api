@@ -109,3 +109,11 @@
 /home/duvis/Proyectos/BitCore/backend/Laboratorio.Api/obj/Debug/net8.0/Laboratorio.API.genruntimeconfig.cache
 /home/duvis/Proyectos/BitCore/backend/Laboratorio.Api/obj/Debug/net8.0/ref/Laboratorio.API.dll
 /home/duvis/Proyectos/BitCore/backend/Laboratorio.Api/obj/Debug/net8.0/Laboratorio.API.sourcelink.json
+/home/duvis/Proyectos/BitCore/backend/Laboratorio.Api/bin/Debug/net8.0/ClosedXML.dll
+/home/duvis/Proyectos/BitCore/backend/Laboratorio.Api/bin/Debug/net8.0/ClosedXML.Parser.dll
+/home/duvis/Proyectos/BitCore/backend/Laboratorio.Api/bin/Debug/net8.0/DocumentFormat.OpenXml.dll
+/home/duvis/Proyectos/BitCore/backend/Laboratorio.Api/bin/Debug/net8.0/DocumentFormat.OpenXml.Framework.dll
+/home/duvis/Proyectos/BitCore/backend/Laboratorio.Api/bin/Debug/net8.0/ExcelNumberFormat.dll
+/home/duvis/Proyectos/BitCore/backend/Laboratorio.Api/bin/Debug/net8.0/RBush.dll
+/home/duvis/Proyectos/BitCore/backend/Laboratorio.Api/bin/Debug/net8.0/SixLabors.Fonts.dll
+/home/duvis/Proyectos/BitCore/backend/Laboratorio.Api/bin/Debug/net8.0/System.IO.Packaging.dll
