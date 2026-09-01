@@ -1,0 +1,65 @@
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using Laboratorio.Api.Data; 
+using Laboratorio.Api.Models;
+using Laboratorio.Api.Dtos.Auth;
+using Laboratorio.Api.Services;
+using BCrypt.Net;
+
+namespace Laboratorio.Api.Controllers
+{
+    [Route("api/[controller]")]
+    [ApiController]
+    public class AuthController : ControllerBase
+    {
+        private readonly AppDbContext _context; 
+        private readonly TokenService _tokenService;
+
+        public AuthController(AppDbContext context, TokenService tokenService)
+        {
+            _context = context;
+            _tokenService = tokenService;
+        }
+
+        [HttpPost("register")]
+        public async Task<IActionResult> Register([FromBody] LoginDto dto)
+        {
+            if (await _context.Usuarios.AnyAsync(u => u.Email == dto.Email))
+                return BadRequest(new { message = "El correo ya está registrado." });
+
+            var usuario = new Usuario
+            {
+                NombreUsuario = "Administrador Sistema", 
+                Email = dto.Email,
+                PasswordHash = BCrypt.Net.BCrypt.HashPassword(dto.Password), 
+                Rol = "Administrador" 
+            };
+
+            _context.Usuarios.Add(usuario);
+            await _context.SaveChangesAsync();
+
+            return Ok(new { message = "Usuario administrador creado exitosamente." });
+        }
+
+        [HttpPost("login")]
+        public async Task<IActionResult> Login([FromBody] LoginDto dto)
+        {
+            var usuario = await _context.Usuarios.FirstOrDefaultAsync(u => u.Email == dto.Email);
+
+            if (usuario == null || !usuario.Activo)
+                return Unauthorized(new { message = "Credenciales incorrectas o usuario inactivo." });
+
+            if (!BCrypt.Net.BCrypt.Verify(dto.Password, usuario.PasswordHash))
+                return Unauthorized(new { message = "Credenciales incorrectas o usuario inactivo." });
+
+            var token = _tokenService.GenerarToken(usuario);
+
+            return Ok(new 
+            { 
+                message = "Autenticación exitosa",
+                token = token,
+                usuario = new { usuario.NombreUsuario, usuario.Email, usuario.Rol }
+            });
+        }
+    }
+}

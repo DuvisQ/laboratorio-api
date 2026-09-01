@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Laboratorio.Api.Data;
+using Laboratorio.Api.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -16,7 +17,10 @@ builder.Services.AddSwaggerGen();
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
 
+builder.Services.AddScoped<TokenService>();
+
 var app = builder.Build();
+
 
 // Configurar el entorno de desarrollo y Swagger
 if (app.Environment.IsDevelopment())
