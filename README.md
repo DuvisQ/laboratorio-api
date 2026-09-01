@@ -6,58 +6,37 @@ BitCore es un backend modular y escalable desarrollado en **.NET 8** y **Postgre
 
 ## 🗺️ Bitácora de Ruta y Progreso (Roadmap)
 
-Usa esta lista de verificación para seguir el desarrollo paso a paso. Puedes marcar los elementos con una `[x]` a medida que los vayamos completando.
-
 ### Fase 1: Infraestructura y Base de Datos (Completada)
 - [x] Configuración inicial del proyecto .NET 8 (LTS) y limpieza de la estructura de archivos.
-- [x] Instalación y fijación de versiones estáneas de Entity Framework Core (8.0.11) y Npgsql.
-- [x] Diseño e implementación de modelos de dominio:
-  - [x] `Tenant` (Gestión multi-clínica / empresas)
-  - [x] `Paciente` (Ficha clínica y datos demográficos)
-  - [x] `ExamenCatalogo` (Catálogo de parámetros y pruebas)
-  - [x] `OrdenLaboratorio` (Órdenes de trabajo y correlativos diarios)
-  - [x] `ResultadoDetalle` (Resultados por parámetro, rangos y trazabilidad)
+- [x] Instalación y fijación de versiones de Entity Framework Core (8.0.11) y Npgsql.
+- [x] Diseño e implementación de modelos de dominio (`Tenant`, `Paciente`, `ExamenCatalogo`, `OrdenLaboratorio`, `ResultadoDetalle`, `Usuario`).
 - [x] Configuración del `AppDbContext` con Fluent API y habilitación de la extensión `uuid-ossp` en PostgreSQL.
 - [x] Despliegue y ejecución exitosa de migraciones iniciales en Docker (`BitCoreLab_DB`).
-- [x] Verificación de la base de datos mediante Adminer.
 
-### Fase 2: Capa de Controladores y Endpoints Base (Próximo paso)
-- [x] Creación de la estructura de carpetas para Controladores (`Controllers`).
-- [ ] Desarrollo del CRUD para la gestión de laboratorios/tenants (`TenantsController`).
-- [ ] Desarrollo del módulo de gestión y búsqueda de pacientes (`PacientesController`).
-- [ ] Configuración y pruebas iniciales de los endpoints mediante Swagger.
+### Fase 2: Seguridad, Autenticación y Control de Accesos (Completada)
+- [x] Implementación de autenticación basada en JSON Web Tokens (JWT) mediante `TokenService`.
+- [x] Configuración de roles y políticas de autorización por políticas (`Administrator`, `Cajero`).
+- [x] Endpoints protegidos y pruebas de rechazo por roles (`403 Forbidden`).
 
-### Fase 3: Lógica Operativa del Laboratorio
-- [ ] Implementación de la lógica para el registro de órdenes de laboratorio (`OrdenesController`).
-- [ ] Generación automática de correlativos diarios por tenant.
+### Fase 3: Módulos Operativos y Máquina de Estados (Completada)
+- [x] **`PacientesController`**: CRUD y búsqueda de pacientes asociados al `Tenant`.
+- [x] **`OrdenesController`**: Registro de órdenes de laboratorio mediante identificadores GUID y correlativos diarios.
+- [x] **Máquina de Estados**: Transiciones controladas para las órdenes de laboratorio (`Registrada` $\rightarrow$ `Procesada` $\rightarrow$ `Validada`) con validación de bloqueos y duplicidades.
+
+### Fase 4: Gestión de Caja y Pagos (Próximo Paso / Integración Adelantada)
+- [ ] Módulo de transacciones financieras y cobros asociados a las órdenes de laboratorio.
+- [ ] Registro de métodos de pago y control de estado financiero (pendiente / pagado / abonado) para condicionar el flujo clínico.
+
+### Fase 5: Exámenes, Resultados y Reportes
 - [ ] Asociación y filtrado del catálogo de exámenes (`ExamenesCatalogo`).
-
-### Fase 4: Gestión de Resultados y Trazabilidad
-- [ ] Desarrollo de endpoints para la carga y actualización de resultados detallados (`ResultadosController`).
-- [ ] Validación de rangos de referencia y alertas de valores fuera de rango.
-- [ ] Control de estados tercerizados y trazabilidad por UUID de bioanalista.
+- [ ] Endpoints para la carga y actualización de resultados detallados con validación de rangos de referencia.
+- [ ] Servicio de generación de reportes clínicos en formato PDF.
+- [ ] Cobertura de pruebas automatizadas con `xUnit`.
 
 ---
 
 ## 🛠️ Stack Tecnológico
-* **Backend:** .NET 8, C#, Web API, Entity Framework Core 8.0.11.
-* **Base de Datos:** PostgreSQL 15+ ejecutándose en contenedores Docker.
+* **Backend:** .NET 8, C#, Web API, Entity Framework Core 8.0.11, JWT Bearer Authentication.
+* **Base de Datos:** PostgreSQL 15+ ejecutándose en contenedores Docker (`BitCoreLab_DB`).
 * **Documentación:** Swagger / OpenAPI.
 * **Herramientas de Apoyo:** Adminer para administración visual de base de datos en desarrollo.
-
-## Bitácora de Ruta - LIS BitCore
-
-### Fase 1: Arquitectura Base e Infraestructura (Completada)
-- Configuración de entorno con .NET 8 y PostgreSQL sobre Docker.
-- Estructuración del modelo Multi-tenant (`Tenant` como entidad raíz).
-- Configuración de Entity Framework Core y migraciones iniciales.
-- Documentación e interfaz de pruebas activas mediante Swagger.
-
-### Fase 2: Módulos y Controladores Principales (En Progreso / Avanzado)
-- **`TenantsController`**: CRUD funcional para la gestión y registro de laboratorios/clínicas (con validación de RIF y estado activo).
-- **`PacientesController`**: Endpoint de registro de pacientes asociado a su respectivo `Tenant`, con soporte para cédula y datos demográficos base (campo de historia física flexible temporalmente).
-- **`ExamenesController`**: Catálogo de exámenes médicos configurables por cada laboratorio (categorías, parámetros, unidades y referencias).
-
-### Próximos Pasos
-- Definición de la lógica de negocio final para el número de historia física del paciente tras confirmación con el personal del laboratorio.
-- Desarrollo de transacciones para Órdenes de Exámenes y asociación de resultados.
