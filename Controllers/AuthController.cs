@@ -22,24 +22,34 @@ namespace Laboratorio.Api.Controllers
         }
 
         [HttpPost("register")]
-        public async Task<IActionResult> Register([FromBody] LoginDto dto)
+        public async Task<IActionResult> Register([FromBody] RegisterDto dto)
         {
+            // Lista de roles permitidos
+            var allowedRoles = new List<string> { "Administrador", "Bioanalista", "Secretaria", "Cajero" };
+
+            // Primero valida el rol
+            if (!allowedRoles.Contains(dto.Rol))
+                return BadRequest(new { message = "Rol no permitido. Los roles permitidos son: Administrador, Bioanalista, Secretaria y Cajero." });
+
+            // Luego valida el correo
             if (await _context.Usuarios.AnyAsync(u => u.Email == dto.Email))
                 return BadRequest(new { message = "El correo ya está registrado." });
 
             var usuario = new Usuario
             {
-                NombreUsuario = "Administrador Sistema", 
+                NombreUsuario = dto.NombreUsuario,
                 Email = dto.Email,
-                PasswordHash = BCrypt.Net.BCrypt.HashPassword(dto.Password), 
-                Rol = "Administrador" 
+                PasswordHash = BCrypt.Net.BCrypt.HashPassword(dto.Password),
+                Rol = dto.Rol
             };
 
             _context.Usuarios.Add(usuario);
             await _context.SaveChangesAsync();
 
-            return Ok(new { message = "Usuario administrador creado exitosamente." });
+            // Mensaje de éxito exactamente como se pide
+            return Ok(new { message = $"Usuario {dto.Rol} creado exitosamente." });
         }
+
 
         [HttpPost("login")]
         public async Task<IActionResult> Login([FromBody] LoginDto dto)
