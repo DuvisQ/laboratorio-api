@@ -1,6 +1,66 @@
-@Laboratorio.API_HostAddress = http://localhost:5034
+@hostname = http://localhost:5034
 
-GET {{Laboratorio.API_HostAddress}}/weatherforecast/
-Accept: application/json
+### ==========================================
+### 1. AUTENTICACIÓN (LOGIN)
+### ==========================================
+
+### @name loginAdmin
+POST {{hostname}}/api/Auth/login
+Content-Type: application/json
+
+{
+  "email": "admin@laboratorio.com",
+  "password": "Password123*"
+}
 
 ###
+
+### @name loginCajero
+POST {{hostname}}/api/Auth/login
+Content-Type: application/json
+
+{
+  "email": "cajero@laboratorio.com",
+  "password": "Password123*"
+}
+
+### ==========================================
+### 2. PRUEBAS EN PACIENTES
+### ==========================================
+
+# 2.1. Intentar ver pacientes SIN TOKEN (Debe retornar 401 Unauthorized)
+GET {{hostname}}/api/Pacientes
+
+###
+
+# Definimos variables manuales con los tokens obtenidos del login de arriba
+# (Copia el token que te devolvió el login y pégalo aquí entre las comillas)
+@tokenAdmin = AQUI_PEGA_EL_TOKEN_DEL_ADMIN
+@tokenCajero = AQUI_PEGA_EL_TOKEN_DEL_CAJERO
+
+### 2.2. Ver pacientes CON TOKEN DE ADMINISTRADOR (Debe retornar 200 OK)
+GET {{hostname}}/api/Pacientes
+Authorization: Bearer {{tokenAdmin}}
+
+
+### ==========================================
+### 3. PRUEBAS DE ROLES EN ÓRDENES
+### ==========================================
+
+# 3.1. Crear orden CON TOKEN DE CAJERO (Debe permitirlo: Rol Administrador, Secretaria, Cajero)
+POST {{hostname}}/api/Ordenes
+Authorization: Bearer {{tokenCajero}}
+Content-Type: application/json
+
+{
+  "pacienteId": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+  "tenantId": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+  "examenesIds": [
+    "3fa85f64-5717-4562-b3fc-2c963f66afa6"
+  ]
+}
+
+### 3.2. Intentar validar una orden CON TOKEN DE CAJERO 
+# (Debe bloquearlo con 403 Forbidden, porque validar es exclusivo de Administrador y Bioanalista)
+PATCH {{hostname}}/api/Ordenes/1/validar
+Authorization: Bearer {{tokenCajero}}

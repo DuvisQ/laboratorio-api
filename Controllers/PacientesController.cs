@@ -4,12 +4,14 @@ using Laboratorio.Api.Data;
 using Laboratorio.Api.Models;
 using ClosedXML.Excel;
 using Microsoft.AspNetCore.Http;
-using System.IO;
+using Microsoft.AspNetCore.Authorization;
 
 namespace Laboratorio.Api.Controllers
 {
+    [Authorize(Roles = "Administrador,Bioanalista,Secretaria")]
     [Route("api/[controller]")]
     [ApiController]
+
     public class PacientesController : ControllerBase
     {
         private readonly AppDbContext _context;

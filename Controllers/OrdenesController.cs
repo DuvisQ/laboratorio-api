@@ -3,9 +3,11 @@ using Microsoft.EntityFrameworkCore;
 using Laboratorio.Api.Data;
 using Laboratorio.Api.Models;
 using Laboratorio.Api.Dtos.Ordenes;
+using Microsoft.AspNetCore.Authorization;
 
 namespace Laboratorio.Api.Controllers
 {
+    [Authorize] // Requiere estar logueado al menos
     [Route("api/[controller]")]
     [ApiController]
     public class OrdenesController : ControllerBase

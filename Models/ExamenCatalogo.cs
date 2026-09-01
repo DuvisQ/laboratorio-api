@@ -16,24 +16,24 @@ namespace Laboratorio.Api.Models
         public Tenant? Tenant { get; set; }
 
         [Required, MaxLength(50)]
-        public string Categoria { get; set; }
+        public string? Categoria { get; set; }
         
         [Required, MaxLength(100)]
-        public string NombreParametro { get; set; }
+        public string? NombreParametro { get; set; }
         
         [MaxLength(20)]
-        public string Unidades { get; set; }
+        public string? Unidades { get; set; }
         
         [MaxLength(100)]
-        public string RangoReferenciaDefecto { get; set; }
+        public string? RangoReferenciaDefecto { get; set; }
         
         [MaxLength(100)]
-        public string TecnicaDefecto { get; set; }
+        public string? TecnicaDefecto { get; set; }
         
         public bool EsTercerizado { get; set; } = false;
         
         [MaxLength(150)]
-        public string LaboratorioDestino { get; set; }
+        public string? LaboratorioDestino { get; set; }
 
         public bool Activo { get; set; } = true;
     }

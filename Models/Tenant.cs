@@ -14,10 +14,10 @@ namespace Laboratorio.Api.Models
         public Guid TenantId { get; set; } = Guid.NewGuid();
         
         [Required, MaxLength(150)]
-        public string NombreClinica { get; set; }
+        public string? NombreClinica { get; set; }
         
         [Required, MaxLength(20)]
-        public string Rif { get; set; }
+        public string? Rif { get; set; }
         
         public bool Activo { get; set; } = true;
         public DateTime FechaRegistro { get; set; } = DateTime.UtcNow;
