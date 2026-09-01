@@ -257,6 +257,9 @@ namespace Laboratorio.Api.Controllers
                     if (resultadoBd != null)
                     {
                         resultadoBd.ValorResultado = item.ValorResultado;
+
+                        // Actualizamos el estado de la muestra (si la trajo o quedó pendiente)
+                        resultadoBd.MuestraEntregada = item.MuestraEntregada;
                         
                         if (!string.IsNullOrEmpty(item.ValorResultado))
                         {

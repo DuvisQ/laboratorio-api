@@ -37,6 +37,7 @@ namespace Laboratorio.Api.Models
         public string? EstadoTercerizado { get; set; } = "Interno"; 
 
         public bool FueraDeRango { get; set; } = false;
+        public bool MuestraEntregada { get; set; } = true;
 
         public Guid? UuidBioanalista { get; set; }
         public DateTime FechaCarga { get; set; } = DateTime.UtcNow;

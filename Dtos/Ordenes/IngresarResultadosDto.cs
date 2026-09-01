@@ -8,7 +8,8 @@ namespace Laboratorio.Api.Dtos.Ordenes
     {
         [Required]
         public Guid ResultadoId { get; set; }
-        public string? ValorResultado { get; set; }
+        public string? ValorResultado { get; set; } = string.Empty;
+        public bool MuestraEntregada { get; set; } = true;
     }
 
     public class IngresarResultadosDto
