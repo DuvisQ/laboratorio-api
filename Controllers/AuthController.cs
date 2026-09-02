@@ -22,45 +22,40 @@ namespace Laboratorio.Api.Controllers
             _tokenService = tokenService;
         }
 
-        // AHORA PROTEGIDO: Solo un Administrador autenticado puede registrar nuevos usuarios
         [HttpPost("register")]
-        [Authorize(Roles = "Administrador")] 
+        [AllowAnonymous] // Únicamente AllowAnonymous para este bootstrap inicial
         public async Task<IActionResult> Register([FromBody] RegisterDto dto)
         {
-            // Extraemos la clínica del administrador que está haciendo la petición
-            var tenantIdAdmin = ObtenerTenantIdDelToken();
-
             // Lista de roles permitidos
             var allowedRoles = new List<string> { "Administrador", "Bioanalista", "Secretaria", "Cajero" };
 
-            // Primero valida el rol
             if (!allowedRoles.Contains(dto.Rol))
                 return BadRequest(new { message = "Rol no permitido. Los roles permitidos son: Administrador, Bioanalista, Secretaria y Cajero." });
 
-            // Luego valida el correo
             if (await _context.Usuarios.AnyAsync(u => u.Email == dto.Email))
                 return BadRequest(new { message = "El correo ya está registrado." });
 
             var usuario = new Usuario
             {
-                TenantId = tenantIdAdmin, // ¡CRÍTICO! El usuario queda amarrado a la clínica de quien lo creó
+                TenantId = dto.TenantId, // Tomamos el TenantId directamente del JSON enviado
                 NombreUsuario = dto.NombreUsuario,
                 Email = dto.Email,
                 PasswordHash = BCrypt.Net.BCrypt.HashPassword(dto.Password),
                 Rol = dto.Rol,
-                Activo = true // Asumimos que un usuario nuevo entra activo
+                PinAutorizacion = !string.IsNullOrEmpty(dto.PinAutorizacion) ? BCrypt.Net.BCrypt.HashPassword(dto.PinAutorizacion) : null,
+                Activo = true
             };
 
             _context.Usuarios.Add(usuario);
             await _context.SaveChangesAsync();
 
-            // Mensaje de éxito exactamente como se pide
             return Ok(new { message = $"Usuario {dto.Rol} creado exitosamente." });
         }
 
 
         // El Login sigue siendo público (sin [Authorize]) porque se necesita para obtener el primer token
         [HttpPost("login")]
+        [AllowAnonymous] // Para que el endpoint sea público
         public async Task<IActionResult> Login([FromBody] LoginDto dto)
         {
             var usuario = await _context.Usuarios.FirstOrDefaultAsync(u => u.Email == dto.Email);

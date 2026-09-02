@@ -43,7 +43,8 @@ namespace Laboratorio.Api.Models
         [MaxLength(200)]
         public string? MotivoDescuento { get; set; }
         public Guid? DescuentoAplicadoPor { get; set; } 
-        public Guid? DescuentoAutorizadoPor { get; set; } 
+        public Guid? DescuentoAutorizadoPor { get; set; }
+        public DateTime? FechaDescuento { get; set; }
 
         // Propiedades de Navegación
         [JsonIgnore]
