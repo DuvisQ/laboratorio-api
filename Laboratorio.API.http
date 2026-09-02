@@ -54,11 +54,12 @@ Content-Type: application/json
 
 {
   "pacienteId": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
-  "tenantId": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
   "examenesIds": [
     "3fa85f64-5717-4562-b3fc-2c963f66afa6"
   ]
 }
+# ¡Nota importante!: El tenantId fue eliminado de este JSON porque 
+# ahora el servidor lo extrae de forma segura desde el token (Bearer {{tokenCajero}})
 
 ### 3.2. Intentar validar una orden CON TOKEN DE CAJERO 
 # (Debe bloquearlo con 403 Forbidden, porque validar es exclusivo de Administrador y Bioanalista)
