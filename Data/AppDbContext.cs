@@ -15,7 +15,9 @@ namespace Laboratorio.Api.Data
         public DbSet<OrdenLaboratorio> OrdenesLaboratorio { get; set; }
         public DbSet<ResultadoDetalle> ResultadosDetalle { get; set; }
         public DbSet<Usuario> Usuarios { get; set; }
-
+        public DbSet<Pago> Pagos { get; set; }
+        public DbSet<Factura> Facturas { get; set; }
+        
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);

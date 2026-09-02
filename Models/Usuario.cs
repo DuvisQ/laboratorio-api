@@ -1,5 +1,7 @@
 using System;
 using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
+using System.Text.Json.Serialization;
 
 namespace Laboratorio.Api.Models
 {
@@ -22,6 +24,16 @@ namespace Laboratorio.Api.Models
         [Required]
         [MaxLength(50)]
         public string Rol { get; set; } = "Recepcionista"; // Roles: Administrador, Recepcionista, Bioanalista
+
+        [Required]
+        public Guid TenantId { get; set; }
+
+        [JsonIgnore]
+        [ForeignKey("TenantId")]
+        public Tenant? Tenant { get; set; }
+        
+        [MaxLength(255)]
+        public string? PinAutorizacion { get; set; }
 
         public bool Activo { get; set; } = true;
 
