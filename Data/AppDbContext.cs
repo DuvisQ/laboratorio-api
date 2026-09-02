@@ -17,6 +17,8 @@ namespace Laboratorio.Api.Data
         public DbSet<Usuario> Usuarios { get; set; }
         public DbSet<Pago> Pagos { get; set; }
         public DbSet<Factura> Facturas { get; set; }
+        public DbSet<ExamenCatalogo> ExamenesCatalogos { get; set; }
+        public DbSet<ExamenParametro> ExamenParametros { get; set; }
         
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {

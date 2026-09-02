@@ -219,11 +219,13 @@ namespace Laboratorio.Api.Controllers
                         Categoria = grupo.Key,
                         Resultados = grupo.Select(r => new ResultadoReporteDto
                         {
-                            ExamenNombre = r.Examen!.NombreParametro ?? "Desconocido",
+                            // Nota: Si el resultado está vinculado a un parámetro específico del examen, 
+                            // aquí accedemos a través de la colección de parámetros o del parámetro asociado.
+                            ExamenNombre = r.Examen!.NombreExamen ?? "Desconocido",
                             Valor = r.ValorResultado ?? string.Empty,
-                            Unidades = r.Examen!.Unidades ?? string.Empty,
-                            RangoReferencia = r.RangoReferenciaAplicado ?? r.Examen!.RangoReferenciaDefecto ?? string.Empty,
-                            Tecnica = r.TecnicaAplicada ?? r.Examen!.TecnicaDefecto ?? string.Empty,
+                            Unidades = string.Empty, // Se mapeará desde el parámetro clínico correspondiente
+                            RangoReferencia = r.RangoReferenciaAplicado ?? string.Empty,
+                            Tecnica = r.TecnicaAplicada ?? string.Empty,
                             FueraDeRango = r.FueraDeRango
                         }).ToList()
                     }).ToList();
