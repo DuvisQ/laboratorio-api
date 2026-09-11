@@ -7,16 +7,19 @@ namespace Laboratorio.Api.Controllers
     public abstract class BaseController : ControllerBase
     {
         protected Guid ObtenerTenantIdDelToken()
-        {
-            var tenantClaim = User.FindFirst("tenant_id") ?? User.FindFirst(ClaimTypes.GroupSid);
-            
-            if (tenantClaim == null || !Guid.TryParse(tenantClaim.Value, out var tenantId))
-            {
-                throw new UnauthorizedAccessException("El token no contiene un TenantId válido.");
-            }
+{
+    var tenantClaim = User.FindFirst("TenantId")?.Value;
+    
+    // Imprimimos en la consola de la terminal para depurar
+    Console.WriteLine($"🔍 Valor del claim TenantId en el token: '{tenantClaim}'");
 
-            return tenantId;
-        }
+    if (string.IsNullOrEmpty(tenantClaim) || !Guid.TryParse(tenantClaim, out var tenantId))
+    {
+        throw new UnauthorizedAccessException("El token no contiene un TenantId válido.");
+    }
+
+    return tenantId;
+}
 
         protected string ObtenerUsuarioIdDelToken()
         {

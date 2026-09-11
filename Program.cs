@@ -42,6 +42,8 @@ builder.Services.AddSwaggerGen(c =>
     });
 });
 
+// Desactivar el remapeo automático de nombres de claims para que respete "TenantId"
+System.IdentityModel.Tokens.Jwt.JwtSecurityTokenHandler.DefaultInboundClaimTypeMap.Clear();
 // Configuración de Autenticación y Esquema JWT
 builder.Services.AddAuthentication(options =>
 {
@@ -70,6 +72,17 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 
 builder.Services.AddScoped<TokenService>();
 
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowVueFrontend", policy =>
+    {
+        // Habilita tanto localhost como 127.0.0.1 por si acaso
+        policy.WithOrigins("http://localhost:5173", "http://127.0.0.1:5173")
+              .AllowAnyHeader()
+              .AllowAnyMethod();
+    });
+});
+
 var app = builder.Build();
 
 // Configurar el entorno de desarrollo y Swagger
@@ -81,6 +94,7 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
+app.UseCors("AllowVueFrontend");
 app.UseAuthentication(); // <-- Obligatorio antes de UseAuthorization para procesar el token
 app.UseAuthorization();
 
