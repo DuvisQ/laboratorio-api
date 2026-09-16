@@ -22,13 +22,14 @@ namespace Laboratorio.Api.Controllers
 
         // GET: api/pacientes
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<Paciente>>> GetPacientes()
+        public async Task<ActionResult<IEnumerable<Paciente>>> GetPacientes([FromQuery] int limite = 50)
         {
-            var tenantId = ObtenerTenantIdDelToken(); // Aseguramos el tenant
-
+            // El filtro por TenantId se aplica de forma transparente con el Global Query Filter de AppDbContext
+            // Se elimina el Include(Tenant) que serializaba grafos cíclicos pesados y causaba demoras de 19s
             return await _context.Pacientes
-                .Where(p => p.TenantId == tenantId) // Filtramos por la clínica del usuario
-                .Include(p => p.Tenant)
+                .AsNoTracking()
+                .OrderByDescending(p => p.FechaRegistro)
+                .Take(limite > 200 ? 200 : limite)
                 .ToListAsync();
         }
 
@@ -36,12 +37,9 @@ namespace Laboratorio.Api.Controllers
         [HttpGet("{id}")]
         public async Task<ActionResult<Paciente>> GetPaciente(Guid id)
         {
-            var tenantId = ObtenerTenantIdDelToken(); // Aseguramos el tenant
-
             var paciente = await _context.Pacientes
-                .Include(p => p.Tenant)
-                // Nos aseguramos de que no pueda ver un paciente de otra clínica
-                .FirstOrDefaultAsync(p => p.PacienteId == id && p.TenantId == tenantId);
+                .AsNoTracking()
+                .FirstOrDefaultAsync(p => p.PacienteId == id);
 
             if (paciente == null)
             {
@@ -53,25 +51,20 @@ namespace Laboratorio.Api.Controllers
 
         // GET: api/Pacientes/buscar
         [HttpGet("buscar")]
-        public async Task<IActionResult> BuscarPacientes([FromQuery] string termino) // Eliminado el [FromQuery] tenantId
+        public async Task<IActionResult> BuscarPacientes([FromQuery] string termino)
         {
-            var tenantId = ObtenerTenantIdDelToken(); // Extraído del token
-
             if (string.IsNullOrWhiteSpace(termino))
                 return BadRequest("Debe ingresar un término (cédula, nombre o apellido) para buscar.");
 
-            // 1. Limpiamos el término de búsqueda de entrada (le quitamos espacios, puntos y guiones)
             var busqueda = termino.Trim().ToLower();
             var busquedaLimpia = busqueda.Replace(".", "").Replace("-", "").Replace(" ", "");
 
-            var query = _context.Pacientes.Where(p => p.TenantId == tenantId).AsQueryable(); // Filtrado estricto
-
-            // 2. Comparamos limpiando también la cédula de la base de datos "al vuelo"
-            var pacientes = await query
+            var pacientes = await _context.Pacientes
+                .AsNoTracking()
                 .Where(p => p.Cedula.ToLower().Replace(".", "").Replace("-", "").Replace(" ", "").Contains(busquedaLimpia) 
                          || p.NombreCompleto.ToLower().Contains(busqueda))
                 .OrderBy(p => p.NombreCompleto)
-                .Take(20)
+                .Take(30)
                 .ToListAsync();
 
             if (!pacientes.Any())
@@ -80,14 +73,38 @@ namespace Laboratorio.Api.Controllers
             return Ok(pacientes);
         }
 
+        private static void NormalizarPacienteMayusculas(Paciente paciente)
+        {
+            if (paciente == null) return;
+
+            paciente.Cedula = paciente.Cedula?.Trim().ToUpper() ?? string.Empty;
+            paciente.NombreCompleto = paciente.NombreCompleto?.Trim().ToUpper() ?? string.Empty;
+            paciente.Sexo = paciente.Sexo?.Trim().ToUpper() ?? string.Empty;
+            paciente.TelefonoPrincipal = paciente.TelefonoPrincipal?.Trim() ?? string.Empty;
+            paciente.TelefonoRepresentante = paciente.TelefonoRepresentante?.Trim() ?? string.Empty;
+            paciente.Direccion = paciente.Direccion?.Trim().ToUpper() ?? string.Empty;
+            paciente.NumeroHistoria = string.IsNullOrWhiteSpace(paciente.NumeroHistoria) ? null : paciente.NumeroHistoria.Trim().ToUpper();
+            paciente.NumeroHistoriaFisica = string.IsNullOrWhiteSpace(paciente.NumeroHistoriaFisica) ? null : paciente.NumeroHistoriaFisica.Trim().ToUpper();
+            paciente.NombreRepresentante = string.IsNullOrWhiteSpace(paciente.NombreRepresentante) ? null : paciente.NombreRepresentante.Trim().ToUpper();
+            paciente.CedulaRepresentante = string.IsNullOrWhiteSpace(paciente.CedulaRepresentante) ? null : paciente.CedulaRepresentante.Trim().ToUpper();
+            paciente.ParentescoRepresentante = string.IsNullOrWhiteSpace(paciente.ParentescoRepresentante) ? null : paciente.ParentescoRepresentante.Trim().ToUpper();
+        }
+
         // POST: api/pacientes
         [HttpPost]
         public async Task<ActionResult<Paciente>> PostPaciente(Paciente paciente)
         {
             var tenantId = ObtenerTenantIdDelToken(); 
-            
-            // Forzamos el Tenant del token, ignorando cualquier cosa maliciosa que envíen en el JSON
             paciente.TenantId = tenantId;
+
+            NormalizarPacienteMayusculas(paciente);
+
+            // Validar cédula única por clínica (Tenant)
+            var yaExiste = await _context.Pacientes.AnyAsync(p => p.Cedula == paciente.Cedula);
+            if (yaExiste)
+            {
+                return BadRequest(new { message = $"Ya existe un paciente registrado con la cédula {paciente.Cedula}." });
+            }
 
             // Validar que el Tenant exista en la base de datos
             var tenantExists = await _context.Tenants.AnyAsync(t => t.TenantId == tenantId);
@@ -103,6 +120,46 @@ namespace Laboratorio.Api.Controllers
             await _context.SaveChangesAsync();
 
             return CreatedAtAction(nameof(GetPaciente), new { id = paciente.PacienteId }, paciente);
+        }
+
+        // PUT: api/pacientes/{id}
+        [HttpPut("{id}")]
+        public async Task<IActionResult> PutPaciente(Guid id, Paciente paciente)
+        {
+            var pacienteExistente = await _context.Pacientes.FirstOrDefaultAsync(p => p.PacienteId == id);
+            if (pacienteExistente == null)
+            {
+                return NotFound(new { message = "Paciente no encontrado." });
+            }
+
+            NormalizarPacienteMayusculas(paciente);
+
+            // Si cambió la cédula (ej. menor que obtuvo su cédula oficial), verificar que no esté repetida
+            if (pacienteExistente.Cedula != paciente.Cedula)
+            {
+                var yaExiste = await _context.Pacientes.AnyAsync(p => p.Cedula == paciente.Cedula && p.PacienteId != id);
+                if (yaExiste)
+                {
+                    return BadRequest(new { message = $"Ya existe otro paciente registrado con la cédula {paciente.Cedula}." });
+                }
+                pacienteExistente.Cedula = paciente.Cedula;
+            }
+
+            pacienteExistente.NombreCompleto = paciente.NombreCompleto;
+            pacienteExistente.Sexo = paciente.Sexo;
+            pacienteExistente.FechaNacimiento = paciente.FechaNacimiento;
+            pacienteExistente.TelefonoPrincipal = paciente.TelefonoPrincipal;
+            pacienteExistente.TelefonoRepresentante = paciente.TelefonoRepresentante;
+            pacienteExistente.Direccion = paciente.Direccion;
+            pacienteExistente.NumeroHistoria = paciente.NumeroHistoria;
+            pacienteExistente.NumeroHistoriaFisica = paciente.NumeroHistoriaFisica;
+            pacienteExistente.NombreRepresentante = paciente.NombreRepresentante;
+            pacienteExistente.CedulaRepresentante = paciente.CedulaRepresentante;
+            pacienteExistente.ParentescoRepresentante = paciente.ParentescoRepresentante;
+
+            await _context.SaveChangesAsync();
+
+            return Ok(pacienteExistente);
         }
 
         // POST: api/pacientes/importar

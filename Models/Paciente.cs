@@ -34,6 +34,15 @@ namespace Laboratorio.Api.Models
         
         [MaxLength(20)]
         public string TelefonoRepresentante { get; set; } = string.Empty;
+
+        [MaxLength(150)]
+        public string? NombreRepresentante { get; set; }
+
+        [MaxLength(20)]
+        public string? CedulaRepresentante { get; set; }
+
+        [MaxLength(50)]
+        public string? ParentescoRepresentante { get; set; }
         
         [MaxLength(255)]
         public string Direccion { get; set; } = string.Empty;

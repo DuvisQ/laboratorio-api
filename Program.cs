@@ -66,11 +66,14 @@ builder.Services.AddAuthentication(options =>
 
 builder.Services.AddAuthorization();
 
+// Inyección de dependencias para contexto y servicios
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddScoped<ITenantService, TenantService>();
+builder.Services.AddScoped<TokenService>();
+
 // Puente de conexión a PostgreSQL
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
-
-builder.Services.AddScoped<TokenService>();
 
 builder.Services.AddCors(options =>
 {

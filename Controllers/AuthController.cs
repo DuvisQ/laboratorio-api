@@ -26,11 +26,9 @@ namespace Laboratorio.Api.Controllers
         [AllowAnonymous] // Únicamente AllowAnonymous para este bootstrap inicial
         public async Task<IActionResult> Register([FromBody] RegisterDto dto)
         {
-            // Lista de roles permitidos
-            var allowedRoles = new List<string> { "Administrador", "Bioanalista", "Secretaria", "Cajero" };
-
-            if (!allowedRoles.Contains(dto.Rol))
-                return BadRequest(new { message = "Rol no permitido. Los roles permitidos son: Administrador, Bioanalista, Secretaria y Cajero." });
+            // Lista de roles permitidos usando la clase centralizada de Roles
+            if (!Laboratorio.Api.Security.Roles.Todos.Contains(dto.Rol))
+                return BadRequest(new { message = $"Rol no permitido. Los roles permitidos son: {string.Join(", ", Laboratorio.Api.Security.Roles.Todos)}." });
 
             if (await _context.Usuarios.AnyAsync(u => u.Email == dto.Email))
                 return BadRequest(new { message = "El correo ya está registrado." });
@@ -68,11 +66,22 @@ namespace Laboratorio.Api.Controllers
 
             var token = _tokenService.GenerarToken(usuario);
 
+            var userPayload = new 
+            { 
+                id = usuario.UsuarioId,
+                nombre = usuario.NombreUsuario,
+                nombreUsuario = usuario.NombreUsuario,
+                email = usuario.Email, 
+                rol = usuario.Rol,
+                tenantId = usuario.TenantId
+            };
+
             return Ok(new 
             { 
                 message = "Autenticación exitosa",
                 token = token,
-                usuario = new { usuario.NombreUsuario, usuario.Email, usuario.Rol }
+                user = userPayload,
+                usuario = userPayload
             });
         }
     }
