@@ -54,21 +54,20 @@ namespace Laboratorio.Api.Controllers
         public async Task<IActionResult> BuscarPacientes([FromQuery] string termino)
         {
             if (string.IsNullOrWhiteSpace(termino))
-                return BadRequest("Debe ingresar un término (cédula, nombre o apellido) para buscar.");
+                return Ok(new List<Paciente>());
 
             var busqueda = termino.Trim().ToLower();
-            var busquedaLimpia = busqueda.Replace(".", "").Replace("-", "").Replace(" ", "");
+            var busquedaLimpia = busqueda.Replace(".", "").Replace("-", "").Replace("/", "").Replace(" ", "");
 
             var pacientes = await _context.Pacientes
                 .AsNoTracking()
                 .Where(p => p.Cedula.ToLower().Replace(".", "").Replace("-", "").Replace(" ", "").Contains(busquedaLimpia) 
-                         || p.NombreCompleto.ToLower().Contains(busqueda))
+                         || p.NombreCompleto.ToLower().Contains(busqueda)
+                         || (p.NumeroHistoria != null && (p.NumeroHistoria.ToLower().Contains(busqueda) || p.NumeroHistoria.Replace("-", "").Replace("/", "").Replace(" ", "").Contains(busquedaLimpia)))
+                         || (p.NumeroHistoriaFisica != null && p.NumeroHistoriaFisica.ToLower().Contains(busqueda)))
                 .OrderBy(p => p.NombreCompleto)
                 .Take(30)
                 .ToListAsync();
-
-            if (!pacientes.Any())
-                return NotFound(new { message = "No se encontraron pacientes que coincidan con la búsqueda." });
 
             return Ok(pacientes);
         }
