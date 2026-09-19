@@ -56,7 +56,9 @@ namespace Laboratorio.Api.Controllers
         [AllowAnonymous] // Para que el endpoint sea público
         public async Task<IActionResult> Login([FromBody] LoginDto dto)
         {
-            var usuario = await _context.Usuarios.FirstOrDefaultAsync(u => u.Email == dto.Email);
+            var identificador = dto.Email?.Trim().ToLower() ?? string.Empty;
+            var usuario = await _context.Usuarios.FirstOrDefaultAsync(u => 
+                u.Email.ToLower() == identificador || u.NombreUsuario.ToLower() == identificador);
 
             if (usuario == null || !usuario.Activo)
                 return Unauthorized(new { message = "Credenciales incorrectas o usuario inactivo." });
@@ -83,6 +85,48 @@ namespace Laboratorio.Api.Controllers
                 user = userPayload,
                 usuario = userPayload
             });
+        }
+
+        // Endpoint de autoservicio para cambiar la contraseña usando el PIN de autorización
+        [HttpPost("recuperar-password")]
+        [AllowAnonymous]
+        public async Task<IActionResult> RecuperarPassword([FromBody] RecuperarPasswordDto dto)
+        {
+            if (string.IsNullOrWhiteSpace(dto.EmailOUsuario) || string.IsNullOrWhiteSpace(dto.PinAutorizacion) || string.IsNullOrWhiteSpace(dto.NuevaPassword))
+            {
+                return BadRequest(new { message = "Todos los campos son obligatorios." });
+            }
+
+            if (dto.NuevaPassword.Length < 6)
+            {
+                return BadRequest(new { message = "La nueva contraseña debe tener al menos 6 caracteres." });
+            }
+
+            var identificador = dto.EmailOUsuario.Trim().ToLower();
+            var usuario = await _context.Usuarios.FirstOrDefaultAsync(u => 
+                u.Email.ToLower() == identificador || u.NombreUsuario.ToLower() == identificador);
+
+            if (usuario == null || !usuario.Activo)
+            {
+                return BadRequest(new { message = "Los datos ingresados no coinciden con ningún usuario activo." });
+            }
+
+            if (string.IsNullOrEmpty(usuario.PinAutorizacion))
+            {
+                return BadRequest(new { message = "Este usuario no posee un PIN de autorización configurado. Por favor, comuníquese con el administrador del sistema." });
+            }
+
+            // Validar PIN de autorización con BCrypt
+            if (!BCrypt.Net.BCrypt.Verify(dto.PinAutorizacion.Trim(), usuario.PinAutorizacion))
+            {
+                return Unauthorized(new { message = "El PIN de autorización ingresado es incorrecto." });
+            }
+
+            // Hashear y actualizar contraseña
+            usuario.PasswordHash = BCrypt.Net.BCrypt.HashPassword(dto.NuevaPassword);
+            await _context.SaveChangesAsync();
+
+            return Ok(new { message = "Contraseña restablecida exitosamente. Ya puede iniciar sesión con su nueva clave." });
         }
     }
 }
