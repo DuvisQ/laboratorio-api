@@ -70,6 +70,7 @@ builder.Services.AddAuthorization();
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ITenantService, TenantService>();
 builder.Services.AddScoped<TokenService>();
+builder.Services.AddScoped<IEmailService, EmailService>();
 
 // Puente de conexión a PostgreSQL
 builder.Services.AddDbContext<AppDbContext>(options =>

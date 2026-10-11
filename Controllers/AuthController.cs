@@ -15,11 +15,19 @@ namespace Laboratorio.Api.Controllers
     {
         private readonly AppDbContext _context; 
         private readonly TokenService _tokenService;
+        private readonly IEmailService _emailService;
+        private readonly IWebHostEnvironment _env;
 
-        public AuthController(AppDbContext context, TokenService tokenService)
+        public AuthController(
+            AppDbContext context, 
+            TokenService tokenService, 
+            IEmailService emailService, 
+            IWebHostEnvironment env)
         {
             _context = context;
             _tokenService = tokenService;
+            _emailService = emailService;
+            _env = env;
         }
 
         [HttpPost("register")]
@@ -127,6 +135,109 @@ namespace Laboratorio.Api.Controllers
             await _context.SaveChangesAsync();
 
             return Ok(new { message = "Contraseña restablecida exitosamente. Ya puede iniciar sesión con su nueva clave." });
+        }
+
+        // =========================================================================================
+        // NIVEL 2: RECUPERACIÓN POR CÓDIGO OTP ENVIADO AL CORREO ELECTRÓNICO
+        // =========================================================================================
+
+        // POST: api/Auth/solicitar-codigo-otp
+        [HttpPost("solicitar-codigo-otp")]
+        [AllowAnonymous]
+        public async Task<IActionResult> SolicitarCodigoOtp([FromBody] SolicitarOtpDto dto)
+        {
+            if (string.IsNullOrWhiteSpace(dto.EmailOUsuario))
+                return BadRequest(new { message = "Debe indicar el correo electrónico o nombre de usuario." });
+
+            var identificador = dto.EmailOUsuario.Trim().ToLower();
+            var usuario = await _context.Usuarios.FirstOrDefaultAsync(u => 
+                u.Email.ToLower() == identificador || u.NombreUsuario.ToLower() == identificador);
+
+            if (usuario == null || !usuario.Activo)
+            {
+                // Mensaje genérico para no filtrar existencia de cuentas
+                return Ok(new 
+                { 
+                    message = "Si la cuenta se encuentra registrada y activa, se ha enviado un código de seguridad a su correo.",
+                    emailOfuscado = "co***@***.com"
+                });
+            }
+
+            // Generar código numérico criptográfico de 6 dígitos
+            var codigoOtp = System.Security.Cryptography.RandomNumberGenerator.GetInt32(100000, 999999).ToString();
+            usuario.CodigoRecuperacion = codigoOtp;
+            usuario.FechaExpiracionCodigo = DateTime.UtcNow.AddMinutes(15);
+
+            await _context.SaveChangesAsync();
+
+            // Despachar correo institucional
+            await _emailService.EnviarCodigoOtpAsync(usuario.Email, usuario.NombreUsuario, codigoOtp);
+
+            var emailOfuscado = OfuscarCorreo(usuario.Email);
+
+            return Ok(new 
+            { 
+                message = $"Código de seguridad generado y enviado exitosamente a {emailOfuscado}.",
+                emailOfuscado = emailOfuscado,
+                // Pista de desarrollo para pruebas rápidas
+                codigoDev = _env.IsDevelopment() ? codigoOtp : null
+            });
+        }
+
+        // POST: api/Auth/recuperar-con-otp
+        [HttpPost("recuperar-con-otp")]
+        [AllowAnonymous]
+        public async Task<IActionResult> RecuperarConOtp([FromBody] RecuperarConOtpDto dto)
+        {
+            if (!ModelState.IsValid)
+                return BadRequest(ModelState);
+
+            if (dto.NuevaPassword.Length < 6)
+                return BadRequest(new { message = "La nueva contraseña debe tener al menos 6 caracteres." });
+
+            var identificador = dto.EmailOUsuario.Trim().ToLower();
+            var usuario = await _context.Usuarios.FirstOrDefaultAsync(u => 
+                u.Email.ToLower() == identificador || u.NombreUsuario.ToLower() == identificador);
+
+            if (usuario == null || !usuario.Activo)
+                return BadRequest(new { message = "Usuario no válido o inactivo." });
+
+            if (string.IsNullOrWhiteSpace(usuario.CodigoRecuperacion) || usuario.FechaExpiracionCodigo == null)
+                return BadRequest(new { message = "No hay una solicitud de código activa para este usuario o ya fue utilizado." });
+
+            if (usuario.FechaExpiracionCodigo < DateTime.UtcNow)
+                return BadRequest(new { message = "El código de seguridad ha expirado (validez máxima de 15 minutos). Por favor solicite uno nuevo." });
+
+            if (usuario.CodigoRecuperacion != dto.CodigoOtp.Trim())
+                return BadRequest(new { message = "El código de seguridad ingresado es incorrecto." });
+
+            // Actualizar contraseña
+            usuario.PasswordHash = BCrypt.Net.BCrypt.HashPassword(dto.NuevaPassword);
+
+            // Si proporcionó un nuevo PIN, actualizarlo también
+            if (!string.IsNullOrWhiteSpace(dto.NuevoPinAutorizacion))
+            {
+                usuario.PinAutorizacion = BCrypt.Net.BCrypt.HashPassword(dto.NuevoPinAutorizacion.Trim());
+            }
+
+            // Consumir el código
+            usuario.CodigoRecuperacion = null;
+            usuario.FechaExpiracionCodigo = null;
+
+            await _context.SaveChangesAsync();
+
+            return Ok(new { message = "¡Contraseña actualizada exitosamente! Ya puede iniciar sesión con su nueva clave." });
+        }
+
+        private static string OfuscarCorreo(string email)
+        {
+            if (string.IsNullOrWhiteSpace(email) || !email.Contains('@')) return email;
+            var partes = email.Split('@');
+            var u = partes[0];
+            var d = partes[1];
+            if (u.Length <= 2)
+                return u[0] + "***@" + d;
+            return u[0] + new string('*', u.Length - 2) + u[^1] + "@" + d;
         }
     }
 }
