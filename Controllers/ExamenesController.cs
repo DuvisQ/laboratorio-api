@@ -585,6 +585,140 @@ namespace Laboratorio.Api.Controllers
         // SINCRONIZACIÓN EXCEL DE PRUEBAS ESPECIALES TERCERIZADAS
         // =========================================================================================
 
+        private class FilaExcelExamen
+        {
+            public string Codigo { get; set; } = "";
+            public string Descripcion { get; set; } = "";
+            public string Observaciones { get; set; } = "";
+            public decimal Precio { get; set; }
+            public decimal Costo { get; set; }
+        }
+
+        private static string ClasificarCategoria(string nombre)
+        {
+            if (string.IsNullOrWhiteSpace(nombre)) return "Pruebas Especiales";
+            var n = nombre.ToUpper();
+            if (n.Contains("PERFIL")) return "Perfiles Especiales";
+            if (n.Contains("HEMO") || n.Contains("COAGUL") || n.Contains("PLAQUET") || n.Contains("FIBRIN")) return "Hematología";
+            if (n.Contains("GLIC") || n.Contains("GLUC") || n.Contains("UREA") || n.Contains("CREAT") || n.Contains("COLEST") || n.Contains("TRIGLIC") || n.Contains("ACIDO") || n.Contains("BILIRRUB")) return "Química Sanguínea";
+            if (n.Contains("HIV") || n.Contains("VDRL") || n.Contains("HEPATIT") || n.Contains("COVID") || n.Contains("DENGUE") || n.Contains("ANTIGENO") || n.Contains("ANTICUERPO") || n.Contains("INMUNO") || n.Contains("SEROLOG")) return "Inmunología y Serología";
+            if (n.Contains("TSH") || n.Contains("T3") || n.Contains("T4") || n.Contains("HORMON") || n.Contains("INSULIN") || n.Contains("PROLACT") || n.Contains("ESTRADIOL") || n.Contains("TESTOST") || n.Contains("CORTISOL")) return "Endocrinología y Hormonas";
+            if (n.Contains("PSA") || n.Contains("CEA") || n.Contains("CA-125") || n.Contains("CA 125") || n.Contains("CA-19") || n.Contains("CA 19") || n.Contains("CA-15") || n.Contains("CA 15") || n.Contains("ALFAFETO")) return "Marcadores Tumorales";
+            if (n.Contains("ORINA") || n.Contains("UROCULT")) return "Uroanálisis";
+            if (n.Contains("HECES") || n.Contains("COPRO")) return "Coproanálisis";
+            return "Pruebas Especiales";
+        }
+
+        private static List<FilaExcelExamen> ExtraerFilasExcel(ExcelWorksheet worksheet)
+        {
+            var resultado = new List<FilaExcelExamen>();
+            if (worksheet.Dimension == null) return resultado;
+
+            int totalRows = worksheet.Dimension.End.Row;
+            int totalCols = worksheet.Dimension.End.Column;
+
+            int colNombre = -1;
+            int colPrecio = -1;
+            int colCodigo = -1;
+            int colObs = -1;
+            int colCosto = -1;
+            int startRow = 1;
+
+            // 1. Escanear cabeceras en las primeras 10 filas
+            for (int r = 1; r <= Math.Min(10, totalRows); r++)
+            {
+                for (int c = 1; c <= totalCols; c++)
+                {
+                    var val = worksheet.Cells[r, c].Value?.ToString()?.Trim().ToUpper() ?? "";
+                    if (val == "NOMBRE" || val == "DESCRIPCION" || val == "EXAMEN" || val == "PRUEBA")
+                        colNombre = c;
+                    else if (val == "PRECIO" || val == "TARIFA" || val == "MONTO" || val == "PVP")
+                        colPrecio = c;
+                    else if (val == "CODIGO" || val == "COD")
+                        colCodigo = c;
+                    else if (val.StartsWith("OBSER"))
+                        colObs = c;
+                    else if (val == "COSTO")
+                        colCosto = c;
+                }
+
+                if (colNombre != -1 && colPrecio != -1)
+                {
+                    startRow = r + 1;
+                    break;
+                }
+            }
+
+            // 2. Si no encontró cabecera explícita, fallback inteligente (en precios_lab.xlsx es B=2, C=3, D=4)
+            if (colNombre == -1 || colPrecio == -1)
+            {
+                var b3 = worksheet.Cells[3, 2].Value?.ToString()?.Trim();
+                if (!string.IsNullOrEmpty(b3))
+                {
+                    colNombre = 2;
+                    colPrecio = 3;
+                    colObs = 4;
+                    startRow = 3;
+                }
+                else
+                {
+                    colNombre = 1;
+                    colPrecio = 2;
+                    colObs = 3;
+                    startRow = 2;
+                }
+            }
+
+            int seq = 1;
+            for (int r = startRow; r <= totalRows; r++)
+            {
+                var nombre = worksheet.Cells[r, colNombre].Value?.ToString()?.Trim();
+                if (string.IsNullOrWhiteSpace(nombre) || nombre.ToUpper() == "NOMBRE" || nombre.ToUpper() == "EXAMEN")
+                    continue;
+
+                decimal precio = 0;
+                var precioStr = worksheet.Cells[r, colPrecio].Value?.ToString()?.Trim()?.Replace(",", ".");
+                if (!string.IsNullOrEmpty(precioStr))
+                {
+                    decimal.TryParse(precioStr, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out precio);
+                }
+
+                string codigo = "";
+                if (colCodigo != -1)
+                {
+                    codigo = worksheet.Cells[r, colCodigo].Value?.ToString()?.Trim() ?? "";
+                }
+                if (string.IsNullOrEmpty(codigo))
+                {
+                    codigo = $"ESP-{seq:D4}";
+                }
+
+                string obs = colObs != -1 ? worksheet.Cells[r, colObs].Value?.ToString()?.Trim() ?? "" : "";
+                decimal costo = 0;
+                if (colCosto != -1)
+                {
+                    var costoStr = worksheet.Cells[r, colCosto].Value?.ToString()?.Trim()?.Replace(",", ".");
+                    if (!string.IsNullOrEmpty(costoStr))
+                    {
+                        decimal.TryParse(costoStr, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out costo);
+                    }
+                }
+
+                resultado.Add(new FilaExcelExamen
+                {
+                    Codigo = codigo,
+                    Descripcion = nombre.ToUpper(),
+                    Observaciones = obs,
+                    Precio = precio,
+                    Costo = costo > 0 ? costo : Math.Round(precio * 0.70m, 2)
+                });
+
+                seq++;
+            }
+
+            return resultado;
+        }
+
         // POST: api/Examenes/previsualizar-excel
         [HttpPost("previsualizar-excel")]
         public async Task<IActionResult> PrevisualizarExcelPrecios(IFormFile archivo)
@@ -601,54 +735,45 @@ namespace Laboratorio.Api.Controllers
                 using (var package = new ExcelPackage(stream))
                 {
                     var worksheet = package.Workbook.Worksheets[0];
-                    int rowCount = worksheet.Dimension.Rows;
+                    var filas = ExtraerFilasExcel(worksheet);
 
-                    for (int row = 2; row <= rowCount; row++)
+                    var examenesExistentes = await _context.ExamenesCatalogo
+                        .AsNoTracking()
+                        .Where(e => e.TenantId == tenantId)
+                        .ToListAsync();
+
+                    var dictPorNombre = examenesExistentes
+                        .GroupBy(e => e.NombreExamen.Trim().ToUpper())
+                        .ToDictionary(g => g.Key, g => g.First());
+
+                    var dictPorCodigo = examenesExistentes
+                        .GroupBy(e => e.CodigoProveedor.Trim().ToUpper())
+                        .ToDictionary(g => g.Key, g => g.First());
+
+                    foreach (var fila in filas)
                     {
-                        var col1 = worksheet.Cells[row, 1].Value?.ToString()?.Trim();
-                        if (string.IsNullOrEmpty(col1) || col1.ToUpper() == "NOMBRE" || col1.ToUpper() == "CODIGO") continue;
+                        if (fila.Codigo.StartsWith("SALV-", StringComparison.OrdinalIgnoreCase))
+                            continue;
 
-                        string codigo;
-                        string descripcion;
-                        string observaciones = "";
-                        decimal precioDolares = 0;
-                        decimal costoDolares = 0;
-
-                        // Detectar si columna 2 es precio directamente (como en precios_lab.xlsx) o descripcion
-                        if (decimal.TryParse(worksheet.Cells[row, 2].Value?.ToString(), out decimal precioDetectado))
-                        {
-                            descripcion = col1;
-                            codigo = $"ESP-{row:D4}";
-                            precioDolares = precioDetectado;
-                            observaciones = worksheet.Cells[row, 3].Value?.ToString()?.Trim() ?? "";
-                        }
-                        else
-                        {
-                            codigo = col1;
-                            descripcion = worksheet.Cells[row, 2].Value?.ToString()?.Trim() ?? "Examen sin descripción";
-                            observaciones = worksheet.Cells[row, 3].Value?.ToString()?.Trim() ?? "";
-                            decimal.TryParse(worksheet.Cells[row, 4].Value?.ToString(), out costoDolares);
-                            decimal.TryParse(worksheet.Cells[row, 6].Value?.ToString(), out precioDolares);
-                        }
-
-                        // Proteger exámenes de rutina SALV
-                        if (codigo.StartsWith("SALV-", StringComparison.OrdinalIgnoreCase))
-                        {
-                            continue; // Omitir para no sobreescribir rutina
-                        }
-
-                        var examenExistente = await _context.ExamenesCatalogo
-                            .FirstOrDefaultAsync(e => e.TenantId == tenantId && (e.CodigoProveedor == codigo || e.NombreExamen == descripcion));
+                        dictPorNombre.TryGetValue(fila.Descripcion.Trim().ToUpper(), out var examenPorNombre);
+                        dictPorCodigo.TryGetValue(fila.Codigo.Trim().ToUpper(), out var examenPorCodigo);
+                        var examenExistente = examenPorNombre ?? examenPorCodigo;
 
                         if (examenExistente != null)
                         {
-                            bool precioCambio = examenExistente.PrecioDolares != precioDolares;
+                            if (!examenExistente.EsTercerizado)
+                            {
+                                // Omitir exámenes de rutina propios
+                                continue;
+                            }
+
+                            bool precioCambio = examenExistente.PrecioDolares != fila.Precio;
                             cambiosPrevistos.Add(new
                             {
                                 codigo = examenExistente.CodigoProveedor,
                                 descripcion = examenExistente.NombreExamen,
                                 precioAnterior = examenExistente.PrecioDolares,
-                                precioNuevo = precioDolares,
+                                precioNuevo = fila.Precio,
                                 estado = precioCambio ? "Tarifa Modificada" : "Sin Cambios"
                             });
                         }
@@ -656,10 +781,10 @@ namespace Laboratorio.Api.Controllers
                         {
                             cambiosPrevistos.Add(new
                             {
-                                codigo,
-                                descripcion,
+                                codigo = fila.Codigo,
+                                descripcion = fila.Descripcion,
                                 precioAnterior = 0.0m,
-                                precioNuevo = precioDolares,
+                                precioNuevo = fila.Precio,
                                 estado = "Nuevo Examen Especial"
                             });
                         }
@@ -696,49 +821,36 @@ namespace Laboratorio.Api.Controllers
                     using (var package = new ExcelPackage(stream))
                     {
                         var worksheet = package.Workbook.Worksheets[0];
-                        int rowCount = worksheet.Dimension.Rows;
+                        var filas = ExtraerFilasExcel(worksheet);
 
-                        for (int row = 2; row <= rowCount; row++)
+                        var examenesExistentes = await _context.ExamenesCatalogo
+                            .Where(e => e.TenantId == tenantId)
+                            .ToListAsync();
+
+                        var dictPorNombre = examenesExistentes
+                            .GroupBy(e => e.NombreExamen.Trim().ToUpper())
+                            .ToDictionary(g => g.Key, g => g.First());
+
+                        var dictPorCodigo = examenesExistentes
+                            .GroupBy(e => e.CodigoProveedor.Trim().ToUpper())
+                            .ToDictionary(g => g.Key, g => g.First());
+
+                        foreach (var fila in filas)
                         {
-                            var col1 = worksheet.Cells[row, 1].Value?.ToString()?.Trim();
-                            if (string.IsNullOrEmpty(col1) || col1.ToUpper() == "NOMBRE" || col1.ToUpper() == "CODIGO") continue;
-
-                            string codigo;
-                            string descripcion;
-                            string observaciones = "";
-                            decimal precioDolares = 0;
-                            decimal costoDolares = 0;
-
-                            if (decimal.TryParse(worksheet.Cells[row, 2].Value?.ToString(), out decimal precioDetectado))
-                            {
-                                descripcion = col1;
-                                codigo = $"ESP-{row:D4}";
-                                precioDolares = precioDetectado;
-                                observaciones = worksheet.Cells[row, 3].Value?.ToString()?.Trim() ?? "";
-                            }
-                            else
-                            {
-                                codigo = col1;
-                                descripcion = worksheet.Cells[row, 2].Value?.ToString()?.Trim() ?? "Examen sin descripción";
-                                observaciones = worksheet.Cells[row, 3].Value?.ToString()?.Trim() ?? "";
-                                decimal.TryParse(worksheet.Cells[row, 4].Value?.ToString(), out costoDolares);
-                                decimal.TryParse(worksheet.Cells[row, 6].Value?.ToString(), out precioDolares);
-                            }
-
-                            // Protección estricta: NO tocar exámenes de rutina SALV
-                            if (codigo.StartsWith("SALV-", StringComparison.OrdinalIgnoreCase))
+                            if (fila.Codigo.StartsWith("SALV-", StringComparison.OrdinalIgnoreCase))
                                 continue;
 
-                            var examen = await _context.ExamenesCatalogo
-                                .FirstOrDefaultAsync(e => e.TenantId == tenantId && (e.CodigoProveedor == codigo || e.NombreExamen == descripcion));
+                            dictPorNombre.TryGetValue(fila.Descripcion.Trim().ToUpper(), out var examenPorNombre);
+                            dictPorCodigo.TryGetValue(fila.Codigo.Trim().ToUpper(), out var examenPorCodigo);
+                            var examen = examenPorNombre ?? examenPorCodigo;
 
                             if (examen != null)
                             {
-                                if (examen.EsTercerizado) // Solo actualizar si es tercerizado
+                                if (examen.EsTercerizado)
                                 {
-                                    examen.PrecioDolares = precioDolares;
-                                    if (costoDolares > 0) examen.CostoDolares = costoDolares;
-                                    if (!string.IsNullOrWhiteSpace(observaciones)) examen.Observaciones = observaciones;
+                                    examen.PrecioDolares = fila.Precio;
+                                    if (fila.Costo > 0) examen.CostoDolares = fila.Costo;
+                                    if (!string.IsNullOrWhiteSpace(fila.Observaciones)) examen.Observaciones = fila.Observaciones;
                                     actualizados++;
                                 }
                             }
@@ -748,18 +860,20 @@ namespace Laboratorio.Api.Controllers
                                 {
                                     ExamenId = Guid.NewGuid(),
                                     TenantId = tenantId,
-                                    CodigoProveedor = codigo,
-                                    NombreExamen = descripcion.ToUpper(),
-                                    Observaciones = observaciones,
-                                    Categoria = "Pruebas Especiales",
-                                    CostoDolares = costoDolares,
-                                    PrecioDolares = precioDolares,
-                                    TiempoRespuesta = "72 Horas",
+                                    CodigoProveedor = fila.Codigo,
+                                    NombreExamen = fila.Descripcion,
+                                    Observaciones = fila.Observaciones,
+                                    Categoria = ClasificarCategoria(fila.Descripcion),
+                                    CostoDolares = fila.Costo,
+                                    PrecioDolares = fila.Precio,
+                                    TiempoRespuesta = "48 a 72 Horas",
                                     EsTercerizado = true,
                                     LaboratorioDestino = labDestino,
                                     Activo = true
                                 };
                                 _context.ExamenesCatalogo.Add(nuevoExamen);
+                                dictPorNombre[nuevoExamen.NombreExamen] = nuevoExamen;
+                                dictPorCodigo[nuevoExamen.CodigoProveedor] = nuevoExamen;
                                 insertados++;
                             }
                         }
