@@ -83,7 +83,11 @@ namespace Laboratorio.Api.Controllers
                 nombreUsuario = usuario.NombreUsuario,
                 email = usuario.Email, 
                 rol = usuario.Rol,
-                tenantId = usuario.TenantId
+                tenantId = usuario.TenantId,
+                cedula = usuario.Cedula,
+                mpps = usuario.Mpps,
+                colegioBioanalistas = usuario.ColegioBioanalistas,
+                tienePin = !string.IsNullOrEmpty(usuario.PinAutorizacion)
             };
 
             return Ok(new 
@@ -227,6 +231,143 @@ namespace Laboratorio.Api.Controllers
             await _context.SaveChangesAsync();
 
             return Ok(new { message = "¡Contraseña actualizada exitosamente! Ya puede iniciar sesión con su nueva clave." });
+        }
+
+        // =========================================================================================
+        // MI PERFIL: AUTOGESTIÓN DE CREDENCIALES Y DATOS PERSONALES DEL USUARIO AUTENTICADO
+        // =========================================================================================
+
+        // GET: api/Auth/perfil
+        [HttpGet("perfil")]
+        [Authorize]
+        public async Task<ActionResult<PerfilUsuarioDto>> ObtenerPerfil()
+        {
+            var usuarioIdGuid = ObtenerUsuarioGuidDelToken();
+            var usuario = await _context.Usuarios
+                .AsNoTracking()
+                .FirstOrDefaultAsync(u => u.UsuarioId == usuarioIdGuid);
+
+            if (usuario == null || !usuario.Activo)
+                return NotFound(new { message = "Usuario no encontrado o inactivo en el sistema." });
+
+            var dto = new PerfilUsuarioDto
+            {
+                UsuarioId = usuario.UsuarioId,
+                NombreUsuario = usuario.NombreUsuario,
+                Email = usuario.Email,
+                Rol = usuario.Rol,
+                Cedula = usuario.Cedula,
+                Mpps = usuario.Mpps,
+                ColegioBioanalistas = usuario.ColegioBioanalistas,
+                TienePin = !string.IsNullOrEmpty(usuario.PinAutorizacion),
+                Activo = usuario.Activo,
+                FechaCreacion = usuario.FechaCreacion
+            };
+
+            return Ok(dto);
+        }
+
+        // PUT: api/Auth/cambiar-password
+        [HttpPut("cambiar-password")]
+        [Authorize]
+        public async Task<IActionResult> CambiarPassword([FromBody] CambiarPasswordDto dto)
+        {
+            if (!ModelState.IsValid)
+                return BadRequest(ModelState);
+
+            var usuarioIdGuid = ObtenerUsuarioGuidDelToken();
+            var usuario = await _context.Usuarios.FirstOrDefaultAsync(u => u.UsuarioId == usuarioIdGuid);
+
+            if (usuario == null || !usuario.Activo)
+                return NotFound(new { message = "Usuario no encontrado o inactivo." });
+
+            // Verificar contraseña actual
+            if (!BCrypt.Net.BCrypt.Verify(dto.PasswordActual, usuario.PasswordHash))
+                return BadRequest(new { message = "La contraseña actual es incorrecta. Por favor verifíquela." });
+
+            if (dto.NuevaPassword != dto.ConfirmarPassword)
+                return BadRequest(new { message = "La confirmación no coincide con la nueva contraseña." });
+
+            if (dto.NuevaPassword.Length < 6)
+                return BadRequest(new { message = "La nueva contraseña debe tener al menos 6 caracteres." });
+
+            usuario.PasswordHash = BCrypt.Net.BCrypt.HashPassword(dto.NuevaPassword);
+            await _context.SaveChangesAsync();
+
+            return Ok(new { message = "¡Contraseña actualizada con éxito!" });
+        }
+
+        // PUT: api/Auth/cambiar-pin
+        [HttpPut("cambiar-pin")]
+        [Authorize]
+        public async Task<IActionResult> CambiarPin([FromBody] CambiarPinDto dto)
+        {
+            if (!ModelState.IsValid)
+                return BadRequest(ModelState);
+
+            var usuarioIdGuid = ObtenerUsuarioGuidDelToken();
+            var usuario = await _context.Usuarios.FirstOrDefaultAsync(u => u.UsuarioId == usuarioIdGuid);
+
+            if (usuario == null || !usuario.Activo)
+                return NotFound(new { message = "Usuario no encontrado o inactivo." });
+
+            // Por seguridad, requerimos la contraseña del usuario para cambiar su PIN
+            if (!BCrypt.Net.BCrypt.Verify(dto.PasswordActual, usuario.PasswordHash))
+                return BadRequest(new { message = "La contraseña actual es incorrecta. Debe confirmarla para autorizar el cambio de PIN." });
+
+            if (dto.NuevoPin != dto.ConfirmarNuevoPin)
+                return BadRequest(new { message = "La confirmación no coincide con el nuevo PIN." });
+
+            var pinLimpio = dto.NuevoPin.Trim();
+            if (pinLimpio.Length < 4 || pinLimpio.Length > 6 || !pinLimpio.All(char.IsDigit))
+                return BadRequest(new { message = "El PIN debe tener entre 4 y 6 dígitos numéricos exclusivamente." });
+
+            usuario.PinAutorizacion = BCrypt.Net.BCrypt.HashPassword(pinLimpio);
+            await _context.SaveChangesAsync();
+
+            return Ok(new { message = "¡PIN de autorización asignado/actualizado con éxito!" });
+        }
+
+        // PUT: api/Auth/actualizar-datos
+        [HttpPut("actualizar-datos")]
+        [Authorize]
+        public async Task<IActionResult> ActualizarDatos([FromBody] ActualizarPerfilDto dto)
+        {
+            if (!ModelState.IsValid)
+                return BadRequest(ModelState);
+
+            var usuarioIdGuid = ObtenerUsuarioGuidDelToken();
+            var usuario = await _context.Usuarios.FirstOrDefaultAsync(u => u.UsuarioId == usuarioIdGuid);
+
+            if (usuario == null || !usuario.Activo)
+                return NotFound(new { message = "Usuario no encontrado o inactivo." });
+
+            usuario.Cedula = dto.Cedula?.Trim();
+            if (usuario.Rol == Laboratorio.Api.Security.Roles.Bioanalista)
+            {
+                usuario.Mpps = dto.Mpps?.Trim();
+                usuario.ColegioBioanalistas = dto.ColegioBioanalistas?.Trim();
+            }
+
+            await _context.SaveChangesAsync();
+
+            return Ok(new 
+            { 
+                message = "Datos de perfil actualizados exitosamente.",
+                usuario = new PerfilUsuarioDto
+                {
+                    UsuarioId = usuario.UsuarioId,
+                    NombreUsuario = usuario.NombreUsuario,
+                    Email = usuario.Email,
+                    Rol = usuario.Rol,
+                    Cedula = usuario.Cedula,
+                    Mpps = usuario.Mpps,
+                    ColegioBioanalistas = usuario.ColegioBioanalistas,
+                    TienePin = !string.IsNullOrEmpty(usuario.PinAutorizacion),
+                    Activo = usuario.Activo,
+                    FechaCreacion = usuario.FechaCreacion
+                }
+            });
         }
 
         private static string OfuscarCorreo(string email)

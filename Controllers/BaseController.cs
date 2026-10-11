@@ -24,7 +24,19 @@ namespace Laboratorio.Api.Controllers
         protected string ObtenerUsuarioIdDelToken()
         {
             return User.FindFirst(ClaimTypes.NameIdentifier)?.Value 
+                   ?? User.FindFirst("sub")?.Value 
+                   ?? User.FindFirst(System.IdentityModel.Tokens.Jwt.JwtRegisteredClaimNames.Sub)?.Value
                    ?? throw new UnauthorizedAccessException("El token no contiene la identidad del usuario.");
+        }
+
+        protected Guid ObtenerUsuarioGuidDelToken()
+        {
+            var idStr = ObtenerUsuarioIdDelToken();
+            if (Guid.TryParse(idStr, out var usuarioId))
+            {
+                return usuarioId;
+            }
+            throw new UnauthorizedAccessException($"El identificador de usuario '{idStr}' en el token no es un Guid válido.");
         }
     }
 }
