@@ -428,6 +428,18 @@ namespace Laboratorio.API.Migrations
                     b.Property<bool>("Activo")
                         .HasColumnType("boolean");
 
+                    b.Property<string>("Cedula")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<string>("CodigoRecuperacion")
+                        .HasMaxLength(6)
+                        .HasColumnType("character varying(6)");
+
+                    b.Property<string>("ColegioBioanalistas")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
                     b.Property<string>("Email")
                         .IsRequired()
                         .HasMaxLength(150)
@@ -435,6 +447,13 @@ namespace Laboratorio.API.Migrations
 
                     b.Property<DateTime>("FechaCreacion")
                         .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("FechaExpiracionCodigo")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Mpps")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
 
                     b.Property<string>("NombreUsuario")
                         .IsRequired()

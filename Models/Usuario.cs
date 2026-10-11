@@ -37,6 +37,20 @@ namespace Laboratorio.Api.Models
 
         public bool Activo { get; set; } = true;
 
+        [MaxLength(20)]
+        public string? Cedula { get; set; }
+
+        [MaxLength(50)]
+        public string? Mpps { get; set; }
+
+        [MaxLength(50)]
+        public string? ColegioBioanalistas { get; set; }
+
+        [MaxLength(6)]
+        public string? CodigoRecuperacion { get; set; }
+
+        public DateTime? FechaExpiracionCodigo { get; set; }
+
         public DateTime FechaCreacion { get; set; } = DateTime.UtcNow;
     }
 }
