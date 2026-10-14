@@ -9,7 +9,8 @@
 
 | Rol en el Sistema | Nombre del Colaborador | Correo / Usuario | Contraseña | PIN (4 dígitos) | Cédula | Avatar |
 | :--- | :--- | :--- | :--- | :---: | :---: | :---: |
-| 🛡️ **SuperAdmin** | Administrador del Sistema | `admin@bitcore.com` | `12369*` | `1234` | — | 👑 Admin Dorado |
+| 🛡️ **SuperAdmin** | Administrador del Sistema | `admin@bitcore.com` | `12369*` | `1234` | `V-12.482.761` | ⚡ Logo BitCore |
+| 👑 **Administrador** | lpariata (Admin Clínica) | `luzmpariata@gmail.com` | *(Definida al crear)* | *(Definido)* | `V-3.376.050` | 🏥 Logo Clínica SALV |
 | 🔬 **Bioanalista** | Lcdo. Ismael Peraza | `duvistest2024@gmail.com` | `Bioanalista2026*` | `1234` | `V-20.327.384` | 🔬 Bioanalista Azul |
 | 📋 **Secretaria** | Ana Morales (Recepción) | `amorales@anticancerosalavictoria.org` | `Secretaria2026*` | `2345` | `V-24.891.203` | 📋 Secretaria Morado |
 | 💵 **Cajero** | Carlos Gómez (Caja) | `cgomez@anticancerosalavictoria.org` | `Cajero2026*` | `3456` | `V-26.114.789` | 💵 Cajero Verde |

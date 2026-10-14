@@ -177,9 +177,9 @@ namespace Laboratorio.Api.Controllers
             usuario.Cedula = dto.Cedula?.Trim().ToUpper();
             usuario.Mpps = dto.Mpps?.Trim();
             usuario.ColegioBioanalistas = dto.ColegioBioanalistas?.Trim();
-            if (!string.IsNullOrWhiteSpace(dto.AvatarUrl))
+            if (dto.AvatarUrl != null)
             {
-                usuario.AvatarUrl = dto.AvatarUrl.Trim();
+                usuario.AvatarUrl = string.IsNullOrWhiteSpace(dto.AvatarUrl) ? null : dto.AvatarUrl.Trim();
             }
             usuario.Activo = dto.Activo;
 
