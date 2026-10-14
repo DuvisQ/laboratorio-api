@@ -5,10 +5,11 @@ using Laboratorio.Api.Models;
 using ClosedXML.Excel;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Authorization;
+using Laboratorio.Api.Security;
 
 namespace Laboratorio.Api.Controllers
 {
-    [Authorize(Roles = "Administrador,Bioanalista,Secretaria")]
+    [Authorize(Roles = $"{Roles.SuperAdmin},{Roles.Administrador},{Roles.Bioanalista},{Roles.Secretaria},{Roles.Cajero}")]
     [Route("api/[controller]")]
     [ApiController]
     public class PacientesController : BaseController // ¡Hereda de BaseController!

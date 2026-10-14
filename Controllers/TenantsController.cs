@@ -3,11 +3,12 @@ using Microsoft.EntityFrameworkCore;
 using Laboratorio.Api.Data;
 using Laboratorio.Api.Models;
 using Microsoft.AspNetCore.Authorization; // Importación obligatoria para la seguridad
+using Laboratorio.Api.Security;
 
 namespace Laboratorio.Api.Controllers
 {
-    // Bloqueamos el acceso: solo los administradores autenticados pueden entrar aquí
-    [Authorize(Roles = "Administrador")]
+    // Bloqueamos el acceso: administradores autenticados pueden entrar aquí
+    [Authorize(Roles = $"{Roles.SuperAdmin},{Roles.Administrador}")]
     [Route("api/[controller]")]
     [ApiController]
     public class TenantsController : BaseController // Heredamos de nuestra clase base segura
