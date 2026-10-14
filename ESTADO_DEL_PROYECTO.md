@@ -130,7 +130,7 @@ Modernizar y digitalizar la gestión integral del laboratorio clínico y citas m
      * Guardia de navegación global en `router/index.js` restringiendo `/usuarios` a usuarios con rol `Administrador`.
    * **Personal Clínico Inicial Registrado:**
      * **Administrador:** `admin@bitcore.com` (Control Total).
-     * **Lcdo. Ismael E. Peroza E. (Bioanalista Jefe):** `iperoza@anticancerosalavictoria.org` (C.I. `V-20.327.384`, MPPS `17879`, CB `110-962-17879`, PIN `1234`).
+     * **Lcdo. Ismael E. Peroza E. (Bioanalista Jefe):** `duvistest2024@gmail.com` (C.I. `V-20.327.384`, MPPS `17879`, CB `110-962-17879`, PIN `1234`).
      * **Ana Morales (Secretaria / Recepción):** `amorales@anticancerosalavictoria.org` (C.I. `V-24.891.203`, PIN `2345`).
      * **Carlos Gómez (Cajero / Cobranza):** `cgomez@anticancerosalavictoria.org` (C.I. `V-26.114.789`, PIN `3456`).
    * **Control de Acceso Basado en Roles (RBAC) Validado:** El acceso a la API y vista de gestión rechaza solicitudes de no administradores con `403 Forbidden`.
