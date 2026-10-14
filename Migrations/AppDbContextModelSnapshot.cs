@@ -428,6 +428,9 @@ namespace Laboratorio.API.Migrations
                     b.Property<bool>("Activo")
                         .HasColumnType("boolean");
 
+                    b.Property<string>("AvatarUrl")
+                        .HasColumnType("text");
+
                     b.Property<string>("Cedula")
                         .HasMaxLength(20)
                         .HasColumnType("character varying(20)");

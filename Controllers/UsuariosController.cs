@@ -11,7 +11,7 @@ namespace Laboratorio.Api.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    [Authorize(Roles = Roles.Administrador)]
+    [Authorize(Roles = $"{Roles.SuperAdmin},{Roles.Administrador}")]
     public class UsuariosController : BaseController
     {
         private readonly AppDbContext _context;
@@ -42,6 +42,7 @@ namespace Laboratorio.Api.Controllers
                     Cedula = u.Cedula,
                     Mpps = u.Mpps,
                     ColegioBioanalistas = u.ColegioBioanalistas,
+                    AvatarUrl = u.AvatarUrl,
                     FechaCreacion = u.FechaCreacion
                 })
                 .ToListAsync();
@@ -69,6 +70,7 @@ namespace Laboratorio.Api.Controllers
                     Cedula = u.Cedula,
                     Mpps = u.Mpps,
                     ColegioBioanalistas = u.ColegioBioanalistas,
+                    AvatarUrl = u.AvatarUrl,
                     FechaCreacion = u.FechaCreacion
                 })
                 .FirstOrDefaultAsync();
@@ -87,9 +89,13 @@ namespace Laboratorio.Api.Controllers
                 return BadRequest(ModelState);
 
             var tenantId = ObtenerTenantIdDelToken();
+            var rolOperador = ObtenerRolDelToken();
 
             if (!Roles.Todos.Contains(dto.Rol))
                 return BadRequest(new { message = $"Rol inválido. Los roles permitidos son: {string.Join(", ", Roles.Todos)}." });
+
+            if (dto.Rol == Roles.SuperAdmin && rolOperador != Roles.SuperAdmin)
+                return StatusCode(StatusCodes.Status403Forbidden, new { message = "Solo una cuenta SuperAdmin puede registrar a otro SuperAdmin." });
 
             var emailLimpio = dto.Email.Trim().ToLower();
             var nombreUsuarioLimpio = dto.NombreUsuario.Trim();
@@ -114,6 +120,7 @@ namespace Laboratorio.Api.Controllers
                 Cedula = dto.Cedula?.Trim().ToUpper(),
                 Mpps = dto.Mpps?.Trim(),
                 ColegioBioanalistas = dto.ColegioBioanalistas?.Trim(),
+                AvatarUrl = dto.AvatarUrl?.Trim(),
                 Activo = true,
                 FechaCreacion = DateTime.UtcNow
             };
@@ -132,6 +139,7 @@ namespace Laboratorio.Api.Controllers
                 Cedula = nuevoUsuario.Cedula,
                 Mpps = nuevoUsuario.Mpps,
                 ColegioBioanalistas = nuevoUsuario.ColegioBioanalistas,
+                AvatarUrl = nuevoUsuario.AvatarUrl,
                 FechaCreacion = nuevoUsuario.FechaCreacion
             });
         }
@@ -144,6 +152,7 @@ namespace Laboratorio.Api.Controllers
                 return BadRequest(ModelState);
 
             var tenantId = ObtenerTenantIdDelToken();
+            var rolOperador = ObtenerRolDelToken();
 
             var usuario = await _context.Usuarios.FirstOrDefaultAsync(u => u.TenantId == tenantId && u.UsuarioId == id);
             if (usuario == null)
@@ -151,6 +160,12 @@ namespace Laboratorio.Api.Controllers
 
             if (!Roles.Todos.Contains(dto.Rol))
                 return BadRequest(new { message = $"Rol inválido. Los roles permitidos son: {string.Join(", ", Roles.Todos)}." });
+
+            if (usuario.Rol == Roles.SuperAdmin && rolOperador != Roles.SuperAdmin)
+                return StatusCode(StatusCodes.Status403Forbidden, new { message = "Solo el SuperAdmin puede modificar una cuenta de rango SuperAdmin." });
+
+            if (dto.Rol == Roles.SuperAdmin && rolOperador != Roles.SuperAdmin)
+                return StatusCode(StatusCodes.Status403Forbidden, new { message = "No tiene privilegios para promover una cuenta a SuperAdmin." });
 
             var emailLimpio = dto.Email.Trim().ToLower();
             if (await _context.Usuarios.AnyAsync(u => u.Email.ToLower() == emailLimpio && u.UsuarioId != id))
@@ -162,6 +177,10 @@ namespace Laboratorio.Api.Controllers
             usuario.Cedula = dto.Cedula?.Trim().ToUpper();
             usuario.Mpps = dto.Mpps?.Trim();
             usuario.ColegioBioanalistas = dto.ColegioBioanalistas?.Trim();
+            if (!string.IsNullOrWhiteSpace(dto.AvatarUrl))
+            {
+                usuario.AvatarUrl = dto.AvatarUrl.Trim();
+            }
             usuario.Activo = dto.Activo;
 
             await _context.SaveChangesAsync();
@@ -173,10 +192,14 @@ namespace Laboratorio.Api.Controllers
         public async Task<IActionResult> ResetearCredenciales(Guid id, [FromBody] ResetearCredencialesDto dto)
         {
             var tenantId = ObtenerTenantIdDelToken();
+            var rolOperador = ObtenerRolDelToken();
 
             var usuario = await _context.Usuarios.FirstOrDefaultAsync(u => u.TenantId == tenantId && u.UsuarioId == id);
             if (usuario == null)
                 return NotFound(new { message = "Usuario no encontrado." });
+
+            if (usuario.Rol == Roles.SuperAdmin && rolOperador != Roles.SuperAdmin)
+                return StatusCode(StatusCodes.Status403Forbidden, new { message = "Solo el SuperAdmin puede restablecer credenciales de una cuenta SuperAdmin." });
 
             if (string.IsNullOrWhiteSpace(dto.NuevaPassword) && string.IsNullOrWhiteSpace(dto.NuevoPinAutorizacion))
                 return BadRequest(new { message = "Debe proporcionar al menos una nueva contraseña o un nuevo PIN." });
@@ -203,10 +226,14 @@ namespace Laboratorio.Api.Controllers
         public async Task<IActionResult> ToggleEstado(Guid id)
         {
             var tenantId = ObtenerTenantIdDelToken();
+            var rolOperador = ObtenerRolDelToken();
 
             var usuario = await _context.Usuarios.FirstOrDefaultAsync(u => u.TenantId == tenantId && u.UsuarioId == id);
             if (usuario == null)
                 return NotFound(new { message = "Usuario no encontrado." });
+
+            if (usuario.Rol == Roles.SuperAdmin && rolOperador != Roles.SuperAdmin)
+                return StatusCode(StatusCodes.Status403Forbidden, new { message = "No tiene privilegios para desactivar una cuenta SuperAdmin." });
 
             usuario.Activo = !usuario.Activo;
             await _context.SaveChangesAsync();

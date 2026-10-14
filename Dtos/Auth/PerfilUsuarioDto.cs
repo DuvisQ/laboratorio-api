@@ -11,6 +11,7 @@ namespace Laboratorio.Api.Dtos.Auth
         public string? Cedula { get; set; }
         public string? Mpps { get; set; }
         public string? ColegioBioanalistas { get; set; }
+        public string? AvatarUrl { get; set; }
         public bool TienePin { get; set; }
         public bool Activo { get; set; }
         public DateTime FechaCreacion { get; set; }

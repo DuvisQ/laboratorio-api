@@ -11,6 +11,7 @@ using Microsoft.EntityFrameworkCore;
 using Laboratorio.Api.Data;
 using Laboratorio.Api.Models;
 using Laboratorio.Api.Dtos.Examenes;
+using Laboratorio.Api.Security;
 using OfficeOpenXml;
 
 namespace Laboratorio.Api.Controllers
@@ -212,6 +213,7 @@ namespace Laboratorio.Api.Controllers
                 return BadRequest(ModelState);
 
             var tenantId = ObtenerTenantIdDelToken();
+            var rolOperador = ObtenerRolDelToken();
             var codigoLimpio = dto.CodigoProveedor.Trim().ToUpper();
 
             bool existeCodigo = await _context.ExamenesCatalogo
@@ -236,7 +238,11 @@ namespace Laboratorio.Api.Controllers
                 Activo = true
             };
 
-            if (dto.Parametros != null && dto.Parametros.Any())
+            // Regla de Permisos: Caja y Recepción pueden dar de alta exámenes para facturar,
+            // pero los analitos y valores de referencia clínicos son exclusividad de Bioanálisis.
+            bool puedeGestionarParametros = rolOperador != Roles.Cajero && rolOperador != Roles.Secretaria;
+
+            if (puedeGestionarParametros && dto.Parametros != null && dto.Parametros.Any())
             {
                 int orden = 1;
                 foreach (var p in dto.Parametros)
@@ -293,6 +299,8 @@ namespace Laboratorio.Api.Controllers
                 return BadRequest(ModelState);
 
             var tenantId = ObtenerTenantIdDelToken();
+            var rolOperador = ObtenerRolDelToken();
+
             var examen = await _context.ExamenesCatalogo
                 .Include(e => e.Parametros)
                 .FirstOrDefaultAsync(e => e.ExamenId == id && e.TenantId == tenantId);
@@ -311,33 +319,43 @@ namespace Laboratorio.Api.Controllers
             examen.NombreExamen = dto.NombreExamen.Trim().ToUpper();
             examen.Observaciones = dto.Observaciones?.Trim();
             examen.Categoria = dto.Categoria?.Trim() ?? "General";
-            examen.CostoDolares = dto.CostoDolares;
             examen.TiempoRespuesta = string.IsNullOrWhiteSpace(dto.TiempoRespuesta) ? "24 Horas" : dto.TiempoRespuesta.Trim();
-            examen.PrecioDolares = dto.PrecioDolares;
             examen.EsTercerizado = dto.EsTercerizado;
             examen.LaboratorioDestino = dto.EsTercerizado ? dto.LaboratorioDestino?.Trim() : null;
             examen.Activo = dto.Activo;
 
-            // Actualizar parámetros analíticos
-            _context.ExamenParametros.RemoveRange(examen.Parametros);
-
-            if (dto.Parametros != null && dto.Parametros.Any())
+            // Regla de Precios: Bioanálisis no puede alterar las tarifas fijadas por Administración/Caja (Solo Lectura)
+            if (rolOperador != Roles.Bioanalista)
             {
-                int orden = 1;
-                foreach (var p in dto.Parametros)
+                examen.CostoDolares = dto.CostoDolares;
+                examen.PrecioDolares = dto.PrecioDolares;
+            }
+
+            // Regla de Parámetros: Caja y Secretaría no pueden modificar componentes clínicos (Exclusivo Bioanálisis/Admin)
+            bool puedeGestionarParametros = rolOperador != Roles.Cajero && rolOperador != Roles.Secretaria;
+            if (puedeGestionarParametros)
+            {
+                // Actualizar parámetros analíticos
+                _context.ExamenParametros.RemoveRange(examen.Parametros);
+
+                if (dto.Parametros != null && dto.Parametros.Any())
                 {
-                    if (!string.IsNullOrWhiteSpace(p.NombreParametro))
+                    int orden = 1;
+                    foreach (var p in dto.Parametros)
                     {
-                        examen.Parametros.Add(new ExamenParametro
+                        if (!string.IsNullOrWhiteSpace(p.NombreParametro))
                         {
-                            ExamenParametroId = Guid.NewGuid(),
-                            ExamenId = examen.ExamenId,
-                            NombreParametro = p.NombreParametro.Trim(),
-                            Unidades = p.Unidades?.Trim(),
-                            RangoReferenciaDefecto = p.RangoReferenciaDefecto?.Trim(),
-                            TecnicaDefecto = p.TecnicaDefecto?.Trim(),
-                            Orden = p.Orden > 0 ? p.Orden : orden++
-                        });
+                            examen.Parametros.Add(new ExamenParametro
+                            {
+                                ExamenParametroId = Guid.NewGuid(),
+                                ExamenId = examen.ExamenId,
+                                NombreParametro = p.NombreParametro.Trim(),
+                                Unidades = p.Unidades?.Trim(),
+                                RangoReferenciaDefecto = p.RangoReferenciaDefecto?.Trim(),
+                                TecnicaDefecto = p.TecnicaDefecto?.Trim(),
+                                Orden = p.Orden > 0 ? p.Orden : orden++
+                            });
+                        }
                     }
                 }
             }

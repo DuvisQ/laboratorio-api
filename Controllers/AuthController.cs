@@ -1,3 +1,4 @@
+using System.ComponentModel.DataAnnotations;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Laboratorio.Api.Data; 
@@ -87,6 +88,7 @@ namespace Laboratorio.Api.Controllers
                 cedula = usuario.Cedula,
                 mpps = usuario.Mpps,
                 colegioBioanalistas = usuario.ColegioBioanalistas,
+                avatarUrl = usuario.AvatarUrl,
                 tienePin = !string.IsNullOrEmpty(usuario.PinAutorizacion)
             };
 
@@ -259,6 +261,7 @@ namespace Laboratorio.Api.Controllers
                 Cedula = usuario.Cedula,
                 Mpps = usuario.Mpps,
                 ColegioBioanalistas = usuario.ColegioBioanalistas,
+                AvatarUrl = usuario.AvatarUrl,
                 TienePin = !string.IsNullOrEmpty(usuario.PinAutorizacion),
                 Activo = usuario.Activo,
                 FechaCreacion = usuario.FechaCreacion
@@ -343,6 +346,11 @@ namespace Laboratorio.Api.Controllers
                 return NotFound(new { message = "Usuario no encontrado o inactivo." });
 
             usuario.Cedula = dto.Cedula?.Trim();
+            if (!string.IsNullOrWhiteSpace(dto.AvatarUrl))
+            {
+                usuario.AvatarUrl = dto.AvatarUrl.Trim();
+            }
+
             if (usuario.Rol == Laboratorio.Api.Security.Roles.Bioanalista)
             {
                 usuario.Mpps = dto.Mpps?.Trim();
@@ -363,11 +371,38 @@ namespace Laboratorio.Api.Controllers
                     Cedula = usuario.Cedula,
                     Mpps = usuario.Mpps,
                     ColegioBioanalistas = usuario.ColegioBioanalistas,
+                    AvatarUrl = usuario.AvatarUrl,
                     TienePin = !string.IsNullOrEmpty(usuario.PinAutorizacion),
                     Activo = usuario.Activo,
                     FechaCreacion = usuario.FechaCreacion
                 }
             });
+        }
+
+        // PUT: api/Auth/actualizar-avatar
+        public class ActualizarAvatarDto
+        {
+            [Required]
+            public string AvatarUrl { get; set; } = string.Empty;
+        }
+
+        [HttpPut("actualizar-avatar")]
+        [Authorize]
+        public async Task<IActionResult> ActualizarAvatar([FromBody] ActualizarAvatarDto dto)
+        {
+            if (string.IsNullOrWhiteSpace(dto.AvatarUrl))
+                return BadRequest(new { message = "El avatar no puede estar vacío." });
+
+            var usuarioIdGuid = ObtenerUsuarioGuidDelToken();
+            var usuario = await _context.Usuarios.FirstOrDefaultAsync(u => u.UsuarioId == usuarioIdGuid);
+
+            if (usuario == null || !usuario.Activo)
+                return NotFound(new { message = "Usuario no encontrado o inactivo." });
+
+            usuario.AvatarUrl = dto.AvatarUrl.Trim();
+            await _context.SaveChangesAsync();
+
+            return Ok(new { message = "¡Avatar de perfil actualizado con éxito!", avatarUrl = usuario.AvatarUrl });
         }
 
         private static string OfuscarCorreo(string email)

@@ -40,6 +40,8 @@ namespace Laboratorio.Api.Models
         [MaxLength(20)]
         public string? Cedula { get; set; }
 
+        public string? AvatarUrl { get; set; }
+
         [MaxLength(50)]
         public string? Mpps { get; set; }
 

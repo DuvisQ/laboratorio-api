@@ -25,6 +25,8 @@ namespace Laboratorio.Api.Dtos.Usuarios
         [MaxLength(50)]
         public string? ColegioBioanalistas { get; set; }
 
+        public string? AvatarUrl { get; set; }
+
         public bool Activo { get; set; } = true;
     }
 }

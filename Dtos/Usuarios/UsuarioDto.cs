@@ -13,6 +13,7 @@ namespace Laboratorio.Api.Dtos.Usuarios
         public string? Cedula { get; set; }
         public string? Mpps { get; set; }
         public string? ColegioBioanalistas { get; set; }
+        public string? AvatarUrl { get; set; }
         public DateTime FechaCreacion { get; set; }
     }
 }

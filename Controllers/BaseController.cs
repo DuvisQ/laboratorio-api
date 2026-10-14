@@ -38,5 +38,12 @@ namespace Laboratorio.Api.Controllers
             }
             throw new UnauthorizedAccessException($"El identificador de usuario '{idStr}' en el token no es un Guid válido.");
         }
+
+        protected string ObtenerRolDelToken()
+        {
+            return User.FindFirst(ClaimTypes.Role)?.Value 
+                   ?? User.FindFirst("role")?.Value 
+                   ?? string.Empty;
+        }
     }
 }

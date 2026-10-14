@@ -12,5 +12,7 @@ namespace Laboratorio.Api.Dtos.Auth
 
         [MaxLength(50, ErrorMessage = "El código de Colegio de Bioanalistas no puede exceder 50 caracteres.")]
         public string? ColegioBioanalistas { get; set; }
+
+        public string? AvatarUrl { get; set; }
     }
 }
