@@ -94,10 +94,11 @@ namespace Laboratorio.Api.Controllers
 
                 // Calcular edad del paciente
                 int edad = 0;
-                if (o.Paciente != null)
+                if (o.Paciente != null && o.Paciente.FechaNacimiento.Year > 1900 && o.Paciente.FechaNacimiento.Year <= hoy.Year)
                 {
                     edad = hoy.Year - o.Paciente.FechaNacimiento.Year;
                     if (o.Paciente.FechaNacimiento.Date > hoy.AddYears(-edad)) edad--;
+                    if (edad < 0 || edad > 125) edad = 0;
                 }
 
                 var examenesList = o.Resultados?
@@ -405,10 +406,11 @@ namespace Laboratorio.Api.Controllers
 
             var hoy = DateTime.UtcNow;
             int edad = 0;
-            if (orden.Paciente != null)
+            if (orden.Paciente != null && orden.Paciente.FechaNacimiento.Year > 1900 && orden.Paciente.FechaNacimiento.Year <= hoy.Year)
             {
                 edad = hoy.Year - orden.Paciente.FechaNacimiento.Year;
                 if (orden.Paciente.FechaNacimiento.Date > hoy.AddYears(-edad)) edad--;
+                if (edad < 0 || edad > 125) edad = 0;
             }
 
             // Mapeo de Factura y Pagos
