@@ -41,5 +41,6 @@ namespace Laboratorio.Api.Models
         public DateTime? FechaValidacionFinal { get; set; }
 
         public ICollection<ResultadoDetalle>? Resultados { get; set; }
+        public Factura? Factura { get; set; }
     }
 }

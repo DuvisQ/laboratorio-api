@@ -81,6 +81,13 @@ namespace Laboratorio.Api.Data
                 .WithMany()
                 .HasForeignKey(o => o.TenantId)
                 .OnDelete(DeleteBehavior.Restrict);
+
+            // Relación 1 a 1 entre Factura y OrdenLaboratorio
+            modelBuilder.Entity<Factura>()
+                .HasOne(f => f.OrdenLaboratorio)
+                .WithOne(o => o.Factura)
+                .HasForeignKey<Factura>(f => f.OrdenLaboratorioId)
+                .OnDelete(DeleteBehavior.Cascade);
         }
 
         public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
