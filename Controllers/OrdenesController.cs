@@ -262,7 +262,7 @@ namespace Laboratorio.Api.Controllers
                     PacienteId = paciente.PacienteId,
                     CorrelativoDiario = nuevoCorrelativo,
                     Estado = "Registrada",
-                    MotivoExamen = dto.MotivoExamen,
+                    MotivoExamen = dto.MotivoExamen?.Trim().ToUpper(),
                     FechaOrden = DateTime.UtcNow
                 };
 

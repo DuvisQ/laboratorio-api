@@ -600,6 +600,120 @@ namespace Laboratorio.Api.Controllers
         }
 
         // =========================================================================================
+        // SEED PROMOCIONAL: COMBOS Y PERFILES OCTUBRE ROSA (SOCIEDAD ANTICANCEROSA)
+        // =========================================================================================
+        [HttpPost("seed-promociones-octubre")]
+        public async Task<IActionResult> SeedPromocionesOctubre()
+        {
+            var tenantId = ObtenerTenantIdDelToken();
+
+            var promociones = new List<(string codigo, string nombre, string cat, decimal precio, string obs, List<(string param, string uni, string refVal)> parametros)>
+            {
+                ("ROSA-00001", "COMBO HIV + VDRL (OCTUBRE ROSA)", "Promociones Octubre Rosa", 10.00m, "Muestra de suero en ayunas", new List<(string, string, string)>
+                {
+                    ("HIV 1 y 2 (Prueba Rápida Inmunocromatográfica)", "-", "NO REACTIVO"),
+                    ("VDRL (Serología RPR)", "-", "NO REACTIVO")
+                }),
+
+                ("ROSA-00002", "HE4 - MARCADOR TUMORAL OVÁRICO (OCTUBRE ROSA)", "Promociones Octubre Rosa", 18.00m, "Suero libre de hemólisis", new List<(string, string, string)>
+                {
+                    ("Antígeno HE4 (EIA/Quimioluminiscencia)", "pmol/L", "Pre-menopausia: < 70 | Post-menopausia: < 140")
+                }),
+
+                ("ROSA-00003", "COMBO MARCADORES TUMORALES (CEA + CA125 + CA19-9 + AFP)", "Promociones Octubre Rosa", 28.00m, "Suero libre de hemólisis y lipemia", new List<(string, string, string)>
+                {
+                    ("Antígeno Carcinoembrionario (CEA)", "ng/mL", "< 5.0 (No fumador: < 3.0)"),
+                    ("Antígeno CA-125 (Ovario)", "U/mL", "< 35.0"),
+                    ("Antígeno CA 19-9 (Gastrointestinal / Páncreas)", "U/mL", "< 37.0"),
+                    ("Alfafetoproteína (AFP)", "ng/mL", "< 7.0")
+                }),
+
+                ("ROSA-00004", "PERFIL 20 ADULTO MAYOR (OCTUBRE ROSA)", "Promociones Octubre Rosa", 20.00m, "Ayunas estricto de 12 horas", new List<(string, string, string)>
+                {
+                    ("Hemoglobina", "g/dL", "H: 13.0 - 17.0 | M: 12.0 - 16.0"),
+                    ("Hematocrito", "%", "H: 40 - 52 | M: 36 - 48"),
+                    ("Leucocitos Totales", "/mm3", "5.000 - 10.000"),
+                    ("Plaquetas", "/mm3", "150.000 - 450.000"),
+                    ("Glicemia Basal", "mg/dL", "70 - 110"),
+                    ("Urea", "mg/dL", "15 - 45"),
+                    ("Creatinina", "mg/dL", "H: 0.7 - 1.3 | M: 0.6 - 1.1"),
+                    ("Ácido Úrico", "mg/dL", "H: 3.5 - 7.2 | M: 2.6 - 6.0"),
+                    ("Colesterol Total", "mg/dL", "< 200 Deseable"),
+                    ("Triglicéridos", "mg/dL", "< 150 Normal"),
+                    ("Examen General de Orina", "-", "Límpido / Sin sedimentos patológicos")
+                }),
+
+                ("ROSA-00005", "PERFIL PARA PAREJAS (5 EN 1 - OCTUBRE ROSA)", "Promociones Octubre Rosa", 50.00m, "Muestra de suero en ayunas y primera orina", new List<(string, string, string)>
+                {
+                    ("HIV 1 y 2", "-", "NO REACTIVO"),
+                    ("VDRL", "-", "NO REACTIVO"),
+                    ("Serología Hepatitis B (HBsAg)", "-", "NO REACTIVO"),
+                    ("Serología Hepatitis C (Anti-HCV)", "-", "NO REACTIVO"),
+                    ("Hematología Completa", "-", "Parámetros normales"),
+                    ("Examen de Orina", "-", "Límpido / Normal")
+                })
+            };
+
+            int creados = 0;
+            int omitidos = 0;
+            foreach (var item in promociones)
+            {
+                var existe = await _context.ExamenesCatalogo
+                    .AnyAsync(e => e.TenantId == tenantId && e.CodigoProveedor == item.codigo);
+
+                if (!existe)
+                {
+                    var nuevoExamen = new ExamenCatalogo
+                    {
+                        ExamenId = Guid.NewGuid(),
+                        TenantId = tenantId,
+                        CodigoProveedor = item.codigo,
+                        NombreExamen = item.nombre,
+                        Categoria = item.cat,
+                        PrecioDolares = item.precio,
+                        CostoDolares = item.precio * 0.65m,
+                        Observaciones = item.obs,
+                        TiempoRespuesta = "24 Horas",
+                        EsTercerizado = false,
+                        Activo = true
+                    };
+
+                    int ord = 1;
+                    foreach (var p in item.parametros)
+                    {
+                        nuevoExamen.Parametros.Add(new ExamenParametro
+                        {
+                            ExamenParametroId = Guid.NewGuid(),
+                            ExamenId = nuevoExamen.ExamenId,
+                            NombreParametro = p.param,
+                            Unidades = p.uni,
+                            RangoReferenciaDefecto = p.refVal,
+                            TecnicaDefecto = "Estándar",
+                            Orden = ord++
+                        });
+                    }
+
+                    _context.ExamenesCatalogo.Add(nuevoExamen);
+                    creados++;
+                }
+                else
+                {
+                    omitidos++;
+                }
+            }
+
+            if (creados > 0)
+                await _context.SaveChangesAsync();
+
+            return Ok(new 
+            { 
+                mensaje = $"Catálogo de Octubre Rosa procesado: {creados} combos creados, {omitidos} ya existían.",
+                creados,
+                omitidos
+            });
+        }
+
+        // =========================================================================================
         // SINCRONIZACIÓN EXCEL DE PRUEBAS ESPECIALES TERCERIZADAS
         // =========================================================================================
 
